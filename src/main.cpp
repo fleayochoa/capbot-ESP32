@@ -103,7 +103,6 @@ static void runTelemetry() {
 }
 
 static void runStatusLed() {
-    return;
     // LED parpadea según estado:
     //   - sin Jetson (lastRx == 0): siempre encendido
     //   - watchdog tripped: parpadeo rápido (100 ms)

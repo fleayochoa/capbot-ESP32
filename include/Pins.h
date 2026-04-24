@@ -35,7 +35,7 @@ constexpr uint8_t I2C_SDA = 21;
 constexpr uint8_t I2C_SCL = 22;
 constexpr uint8_t ENC_LEFT_A = 33;  // input-only en ESP32, ok para encoder
 constexpr uint8_t ENC_LEFT_B = 32;
-constexpr uint8_t ENC_RIGHT_A = 27;
-constexpr uint8_t ENC_RIGHT_B = 26;
+constexpr uint8_t ENC_RIGHT_A = 26;
+constexpr uint8_t ENC_RIGHT_B = 27;
 
 }  // namespace Pins

@@ -10,11 +10,6 @@ MotorDriver::MotorDriver(Capbot::motorPins leftMotorPins, Capbot::motorPins righ
     right_.in1 = rightMotorPins.pinA;
     right_.in2 = rightMotorPins.pinB;
     right_.ena = rightMotorPins.ena;
-
-    Channel left_{
-        left_.in1, left_.in2, left_.ena, leftCH};
-    Channel right_{
-        right_.in1, right_.in2, right_.ena, rightCH};
 }
 
 // ---- Helpers ----
