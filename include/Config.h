@@ -8,7 +8,7 @@
 namespace Cfg {
 
 // -------- Serial con Jetson --------
-constexpr uint32_t SERIAL_BAUD = 921600;
+constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr size_t   SERIAL_RX_BUFFER = 1024;   // ESP32 Serial por defecto es pequeño
 constexpr size_t   SERIAL_TX_BUFFER = 1024;
 
@@ -22,12 +22,12 @@ constexpr uint32_t JETSON_WATCHDOG_MS = 200;
 constexpr uint32_t TELEMETRY_PERIOD_MS = 20;
 
 // -------- PWM motores --------
-constexpr uint32_t PWM_FREQ_HZ = 20000;   // 20 kHz → fuera del audible
+constexpr uint32_t PWM_FREQ_HZ = 2000;   // 2 kHz → fuera del audible
 constexpr uint8_t  PWM_RESOLUTION_BITS = 10;  // 0..1023
 
 // Rango del comando de motor (int16 del host → PWM interno).
-// El host manda valores en [-32000, 32000]; los mapeamos a [-1023, 1023].
-constexpr int32_t CMD_FULL_SCALE = 32000;
+// El host manda valores en [-32768, 32767]; los mapeamos a [-1023, 1023].
+constexpr int32_t CMD_FULL_SCALE = 32768;
 
 // -------- Tamaños de buffer del framing --------
 constexpr size_t MAX_FRAME_PAYLOAD = 240;  // TELEMETRY JSON cabe holgado
