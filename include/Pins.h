@@ -33,9 +33,9 @@ constexpr uint8_t STATUS_LED = 2;  // LED integrado en muchos dev-boards
 // --- Reservados para sensores (I2C IMU, encoders, etc.) ---
 constexpr uint8_t I2C_SDA = 21;
 constexpr uint8_t I2C_SCL = 22;
-constexpr uint8_t ENC_LEFT_A = 34;  // input-only en ESP32, ok para encoder
-constexpr uint8_t ENC_LEFT_B = 35;
-constexpr uint8_t ENC_RIGHT_A = 36;
-constexpr uint8_t ENC_RIGHT_B = 39;
+constexpr uint8_t ENC_LEFT_A = 33;  // input-only en ESP32, ok para encoder
+constexpr uint8_t ENC_LEFT_B = 32;
+constexpr uint8_t ENC_RIGHT_A = 27;
+constexpr uint8_t ENC_RIGHT_B = 26;
 
 }  // namespace Pins
