@@ -19,7 +19,7 @@ constexpr uint32_t JETSON_WATCHDOG_MS = 200;
 // -------- Telemetría --------
 // Frecuencia con la que armamos y mandamos el paquete TELEMETRY.
 // 50 Hz = periodo 20 ms. Coincide con el requisito de publicación.
-constexpr uint32_t TELEMETRY_PERIOD_MS = 20;
+constexpr uint32_t TELEMETRY_PERIOD_MS = 100;
 
 // -------- PWM motores --------
 constexpr uint32_t PWM_FREQ_HZ = 2000;   // 2 kHz → fuera del audible

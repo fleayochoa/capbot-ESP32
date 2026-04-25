@@ -14,6 +14,7 @@
 #include "Config.h"
 #include "QuadratureEncoder.h"
 #include "CapTypes.h"
+#include "IMUSensor.h"
 
 
 class SensorHub {
@@ -27,11 +28,12 @@ public:
         int32_t enc_right;
         float   vel_left_cps;   // cuentas por segundo
         float   vel_right_cps;
-        uint32_t enc_errors_left;
-        uint32_t enc_errors_right;
         int16_t motor_pwm_left;
         int16_t motor_pwm_right;
         bool    braking;
+        IMUSensor::Vec3    imu_accel;
+        IMUSensor::Vec3    imu_gyro;
+        IMUSensor::Vec3    imu_mag;
         uint32_t uptime_ms;
     };
 
@@ -57,4 +59,5 @@ private:
     QuadratureEncoder encL_;
     QuadratureEncoder encR_;
     Telemetry last_{};
+    IMUSensor imu_;
 };

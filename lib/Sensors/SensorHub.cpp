@@ -11,6 +11,8 @@ SensorHub::SensorHub(Capbot::encoderPins encPins, pcnt_unit_t encUnitLeft,
 void SensorHub::begin() {
     encL_.begin();
     encR_.begin();
+    imu_.begin();
+    Serial.println("SensorHub initialized");
 }
 
 void SensorHub::sample() {
@@ -18,6 +20,9 @@ void SensorHub::sample() {
     last_.enc_right        = encR_.read();
     last_.vel_left_cps     = encL_.computeCountsPerSec();
     last_.vel_right_cps    = encR_.computeCountsPerSec();
+    last_.imu_accel        = imu_.readAccel();
+    last_.imu_gyro         = imu_.readGyro();
+    last_.imu_mag          = imu_.readMag();
     last_.uptime_ms        = millis();
 }
 
@@ -32,19 +37,22 @@ size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap) {
     // ajustar si crece.
     StaticJsonDocument<384> doc;
 
-    doc["t_ms"]     = last_.uptime_ms;
+    doc["t"]     = last_.uptime_ms;
     JsonObject enc  = doc.createNestedObject("enc");
     enc["l"]        = last_.enc_left;
     enc["r"]        = last_.enc_right;
-    enc["vl_cps"]   = last_.vel_left_cps;
-    enc["vr_cps"]   = last_.vel_right_cps;
-    enc["err_l"]    = last_.enc_errors_left;
-    enc["err_r"]    = last_.enc_errors_right;
+    enc["lc"]   = last_.vel_left_cps;
+    enc["rc"]   = last_.vel_right_cps;
 
     JsonObject mot  = doc.createNestedObject("mot");
-    mot["pwm_l"]    = last_.motor_pwm_left;
-    mot["pwm_r"]    = last_.motor_pwm_right;
-    mot["brake"]    = last_.braking;
+    mot["pl"]    = last_.motor_pwm_left;
+    mot["pr"]    = last_.motor_pwm_right;
+    mot["brk"]    = last_.braking;
+
+    JsonObject imu  = doc.createNestedObject("imu");
+    imu["mx"]    = last_.imu_mag.x;
+    imu["my"]    = last_.imu_mag.y;
+    imu["mz"]    = last_.imu_mag.z;
 
     const size_t n = serializeJson(doc, out, out_cap);
     if (n == 0 || n >= out_cap) return 0;

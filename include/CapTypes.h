@@ -14,4 +14,8 @@ namespace Capbot{
         gpio_num_t rightA;
         gpio_num_t rightB;
     };
+    struct IMUPins{
+        uint8_t sda;
+        uint8_t scl;
+    };
 }

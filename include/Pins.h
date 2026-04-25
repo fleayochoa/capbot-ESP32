@@ -14,14 +14,14 @@
 namespace Pins {
 
 // --- Motor izquierdo ---
-constexpr uint8_t LEFT_IN1 = 25;
-constexpr uint8_t LEFT_IN2 = 26;
-constexpr uint8_t LEFT_ENA = 27;   // PWM
+constexpr uint8_t LEFT_IN1 = 15;
+constexpr uint8_t LEFT_IN2 = 12;
+constexpr uint8_t LEFT_ENA = 18;   // PWM
 
 // --- Motor derecho ---
-constexpr uint8_t RIGHT_IN1 = 32;
-constexpr uint8_t RIGHT_IN2 = 33;
-constexpr uint8_t RIGHT_ENA = 14;  // PWM
+constexpr uint8_t RIGHT_IN1 = 13;
+constexpr uint8_t RIGHT_IN2 = 14;
+constexpr uint8_t RIGHT_ENA = 5;  // PWM
 
 // --- Canales LEDC (ESP32 PWM) ---
 constexpr uint8_t LEDC_CH_LEFT  = 0;
