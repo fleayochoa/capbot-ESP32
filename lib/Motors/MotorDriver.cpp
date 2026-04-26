@@ -6,10 +6,12 @@ MotorDriver::MotorDriver(Capbot::motorPins leftMotorPins, Capbot::motorPins righ
     left_.in1 = leftMotorPins.pinA;
     left_.in2 = leftMotorPins.pinB;
     left_.ena = leftMotorPins.ena;
+    left_.ledcCh = leftCH;
 
     right_.in1 = rightMotorPins.pinA;
     right_.in2 = rightMotorPins.pinB;
     right_.ena = rightMotorPins.ena;
+    right_.ledcCh = rightCH;
 }
 
 // ---- Helpers ----
