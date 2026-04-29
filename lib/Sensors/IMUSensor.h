@@ -65,7 +65,8 @@ public:
     Vec3 readMag         ();   // µT
     bool readEuler       (Euler& e);   // deg
     bool readQuaternion  (Quat&  q);
-    bool readLinearAccel (Vec3&  v);   // m/s² (sólo modos fusión)
+    Vec3 readLinearAccel ();   // m/s² (sólo modos fusión)
+    float readOrientation ();
     bool readGravity     (Vec3&  v);   // m/s² (sólo modos fusión)
     bool readCalibStatus (CalibStatus& c);
     bool readTemperature (int8_t& t_c);
@@ -82,6 +83,7 @@ private:
     TwoWire*         wire_;
     Adafruit_BNO055  bno_;
     OpMode           mode_ = OpMode::CONFIG;
+    adafruit_bno055_offsets_t offsets;
  
     // Helper: copia imu::Vector<3> a Vec3 con un escalar opcional.
     static void copyVec(const imu::Vector<3>& src, Vec3& dst, float scale = 1.0f);

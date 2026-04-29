@@ -31,6 +31,18 @@ bool IMUSensor::begin(OpMode mode, bool useExternalCrystal) {
     // Cristal externo del módulo GY-BNO055.
     // Nota: setExtCrystalUse necesita estar en CONFIG mode internamente; la lib
     // ya lo maneja (hace switch a CONFIG, escribe el bit, vuelve al modo previo).
+    offsets.accel_offset_x = -3;
+    offsets.accel_offset_y = 43;
+    offsets.accel_offset_z = -26;
+    offsets.mag_offset_x = -572;
+    offsets.mag_offset_y = 261;
+    offsets.mag_offset_z = 106;
+    offsets.gyro_offset_x = -2;
+    offsets.gyro_offset_y = 0;
+    offsets.gyro_offset_z = -1;
+    offsets.accel_radius = 1000;
+    offsets.mag_radius = 815;
+    bno_.setSensorOffsets(offsets);
     bno_.setExtCrystalUse(useExternalCrystal);
 
     return true;
@@ -79,9 +91,10 @@ IMUSensor::Vec3 IMUSensor::readMag() {
     return v;
 }
 
-bool IMUSensor::readLinearAccel(Vec3& v) {
+IMUSensor::Vec3 IMUSensor::readLinearAccel() {
+    Vec3 v;
     copyVec(bno_.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL), v);
-    return true;
+    return v;
 }
 
 bool IMUSensor::readGravity(Vec3& v) {
@@ -96,6 +109,13 @@ bool IMUSensor::readEuler(Euler& e) {
     e.roll    = static_cast<float>(ev.y());
     e.pitch   = static_cast<float>(ev.z());
     return true;
+}
+
+float IMUSensor::readOrientation() {
+    // Devuelve la orientación del robot en el plano horizontal (heading/yaw).
+    sensors_event_t orientationData, gyroData;
+    bno_.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
+    return orientationData.orientation.x;
 }
 
 bool IMUSensor::readQuaternion(Quat& q) {

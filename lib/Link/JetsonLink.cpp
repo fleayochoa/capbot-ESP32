@@ -4,14 +4,14 @@
 
 void JetsonLink::begin(uint32_t baud) {
     // Buffers mayores al default (64 bytes) para absorber ráfagas.
-    Serial2.setRxBufferSize(Cfg::SERIAL_RX_BUFFER);
-    Serial2.setTxBufferSize(Cfg::SERIAL_TX_BUFFER);
-    Serial2.begin(baud);
+    Serial.setRxBufferSize(Cfg::SERIAL_RX_BUFFER);
+    Serial.setTxBufferSize(Cfg::SERIAL_TX_BUFFER);
+    Serial.begin(baud);
 
-    // Esperamos un poco a que Serial2 esté listo (algunos cores lo requieren).
+    // Esperamos un poco a que Serial esté listo (algunos cores lo requieren).
     // No bloqueamos indefinidamente por si está corriendo headless.
     const uint32_t t0 = millis();
-    while (!Serial2 && (millis() - t0) < 500) {
+    while (!Serial && (millis() - t0) < 500) {
         delay(1);
     }
 }
@@ -21,8 +21,8 @@ void JetsonLink::tick() {
     // lo bucleamos. Limitamos iteraciones por tick para no monopolizar el
     // loop() si llega una ráfaga enorme.
     size_t budget = 256;
-    while (Serial2.available() > 0 && budget-- > 0) {
-        const int b = Serial2.read();
+    while (Serial.available() > 0 && budget-- > 0) {
+        const int b = Serial.read();
         if (b < 0) break;
         if (parser_.feed(static_cast<uint8_t>(b))) {
             lastRxMs_ = millis();
@@ -77,7 +77,7 @@ bool JetsonLink::sendRaw(uint8_t type, const uint8_t* payload, size_t len) {
     uint8_t buf[OUT_CAP];
     const size_t n = Protocol::pack_frame(type, payload, len, buf, sizeof(buf));
     if (n == 0) return false;
-    // Serial2.write devuelve los bytes escritos; si el TX buffer está lleno
+    // Serial.write devuelve los bytes escritos; si el TX buffer está lleno
     // bloquea hasta poder, pero en práctica a 921600 baud casi nunca pasa.
-    return Serial2.write(buf, n) == n;
+    return Serial.write(buf, n) == n;
 }

@@ -34,6 +34,8 @@ public:
         IMUSensor::Vec3    imu_accel;
         IMUSensor::Vec3    imu_gyro;
         IMUSensor::Vec3    imu_mag;
+        IMUSensor::Vec3    imu_linear_accel;
+        float  imu_orientation;
         uint32_t uptime_ms;
     };
 
