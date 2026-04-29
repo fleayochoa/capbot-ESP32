@@ -19,8 +19,8 @@ constexpr uint8_t LEFT_IN2 = 12;
 constexpr uint8_t LEFT_ENA = 18;   // PWM
 
 // --- Motor derecho ---
-constexpr uint8_t RIGHT_IN1 = 13;
-constexpr uint8_t RIGHT_IN2 = 14;
+constexpr uint8_t RIGHT_IN1 = 14;
+constexpr uint8_t RIGHT_IN2 = 13;
 constexpr uint8_t RIGHT_ENA = 5;  // PWM
 
 // --- Canales LEDC (ESP32 PWM) ---
