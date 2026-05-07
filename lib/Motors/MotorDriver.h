@@ -8,7 +8,7 @@
 //   IN1=1, IN2=0, ENA=PWM  -> avanza con duty=PWM
 //   IN1=0, IN2=1, ENA=PWM  -> retrocede con duty=PWM
 //   IN1=1, IN2=1, ENA=1    -> FRENO ACTIVO (corto a VCC)
-//   IN1=0, IN2=0, ENA=1    -> FRENO ACTIVO (corto a GND, recomendado)
+//   IN1=0, IN2=0, ENA=1    -> FRENO ACTIVO (corto a GND)
 //   IN1=x, IN2=x, ENA=0    -> coast / libre
 //
 // Usamos IN1=IN2=0 + ENA=HIGH como freno activo (más habitual).

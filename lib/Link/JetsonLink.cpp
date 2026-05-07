@@ -8,7 +8,7 @@ void JetsonLink::begin(uint32_t baud) {
     Serial2.setTxBufferSize(Cfg::SERIAL_TX_BUFFER);
     Serial2.begin(baud);
 
-    // Esperamos un poco a que Serial2 esté listo (algunos cores lo requieren).
+    // Esperamos un poco a que Serial2 esté listo 
     // No bloqueamos indefinidamente por si está corriendo headless.
     const uint32_t t0 = millis();
     while (!Serial2 && (millis() - t0) < 500) {
@@ -78,6 +78,6 @@ bool JetsonLink::sendRaw(uint8_t type, const uint8_t* payload, size_t len) {
     const size_t n = Protocol::pack_frame(type, payload, len, buf, sizeof(buf));
     if (n == 0) return false;
     // Serial2.write devuelve los bytes escritos; si el TX buffer está lleno
-    // bloquea hasta poder, pero en práctica a 921600 baud casi nunca pasa.
+    // bloquea hasta poder, pero en práctica a 115200 baud casi nunca pasa.
     return Serial2.write(buf, n) == n;
 }

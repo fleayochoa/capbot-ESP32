@@ -40,8 +40,7 @@ static SensorHub   g_sensors(encPins, PCNT_UNIT_0, PCNT_UNIT_1, 100);
 // Timestamps para schedulers cooperativos
 static uint32_t g_lastTelemetryMs = 0;
 
-// Flag: ¿ya disparamos el freno por watchdog? Evita reenviar brake()
-// cada iteración (no es caro, pero contamina los logs).
+// Flag: Disparo del freno por watchdog. 
 static bool g_watchdogTriggered = false;
 
 // ==============================================================

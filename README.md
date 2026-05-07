@@ -1,7 +1,7 @@
 # ESP32 Firmware — Motor & Sensor Bridge
 
 Firmware Arduino-sobre-PlatformIO que habla COBS+CRC16 con la Jetson Nano por
-serial USB. Controla motores vía L298N y publica telemetría de sensores.
+serial2. Controla motores vía L298N y publica telemetría de sensores.
 
 ## Arquitectura
 
@@ -42,17 +42,9 @@ if (millis() - lastJetsonRxMs > JETSON_WATCHDOG_MS) {
 }
 ```
 
-La Jetson manda heartbeat cada 50 ms; el watchdog dispara a 200 ms (4 pérdidas
+La Jetson manda heartbeat cada 50 ms; el watchdog dispara a 200 ms (3 pérdidas consecutivas
 toleradas).
 
-## Build / upload / monitor
-
-```bash
-pio run                      # compilar
-pio run -t upload            # flashear
-pio device monitor -b 921600 # ver logs
-pio test -e native           # correr tests del protocolo en PC
-```
 
 ## Protocolo serial (resumen)
 

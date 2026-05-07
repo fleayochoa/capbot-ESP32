@@ -6,9 +6,7 @@
 //   - Mantener el timestamp del último RX válido (para el watchdog)
 //   - Ofrecer API de envío de frames (telemetría, hello)
 //
-// El despacho se hace con punteros a función (no std::function) para evitar
-// allocations en hot-path. Cada callback recibe un contexto opaco (void*)
-// que fija el usuario al registrar.
+
 
 #pragma once
 #include <Arduino.h>

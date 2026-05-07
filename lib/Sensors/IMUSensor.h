@@ -57,9 +57,8 @@ public:
     OpMode mode() const { return mode_; }
  
     // ---- Lecturas ----
-    // Adafruit devuelve Vector<3> sin indicar error I2C. Aquí siempre retornan
-    // true; si hubo fallo de bus, los valores serán 0/inconsistentes. Para
-    // detectar desconexión usar isConnected() periódicamente.
+    // Adafruit devuelve Vector<3> sin indicar error I2C. 
+    // Para detectar desconexión usar isConnected() periódicamente.
     Vec3 readAccel       ();   // m/s²
     Vec3 readGyro        ();   // dps (convertido desde rps interno)
     Vec3 readMag         ();   // µT

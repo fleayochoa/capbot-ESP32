@@ -1,6 +1,6 @@
 // Constantes de configuración del firmware.
 //
-// Todos los valores en un solo sitio, sin #defines mágicos dispersos.
+// Todos los valores en un solo sitio, sin #defines dispersos.
 
 #pragma once
 #include <stdint.h>
@@ -9,7 +9,7 @@ namespace Cfg {
 
 // -------- Serial con Jetson --------
 constexpr uint32_t SERIAL_BAUD = 115200;
-constexpr size_t   SERIAL_RX_BUFFER = 1024;   // ESP32 Serial por defecto es pequeño
+constexpr size_t   SERIAL_RX_BUFFER = 1024;   // ESP32 Serial por defecto es 64 bytes, insuficiente para nuestros frames JSON.
 constexpr size_t   SERIAL_TX_BUFFER = 1024;
 
 // -------- Watchdog del link con Jetson (requisito ME ms) --------
@@ -18,12 +18,12 @@ constexpr uint32_t JETSON_WATCHDOG_MS = 200;
 
 // -------- Telemetría --------
 // Frecuencia con la que armamos y mandamos el paquete TELEMETRY.
-// 50 Hz = periodo 20 ms. Coincide con el requisito de publicación.
+// 50 Hz = periodo 20 ms.
 constexpr uint32_t TELEMETRY_PERIOD_MS = 20;
 
 // -------- PWM motores --------
 constexpr uint32_t PWM_FREQ_HZ = 500;   // 500 Hz
-constexpr uint8_t  PWM_RESOLUTION_BITS = 10;  // 0..1023
+constexpr uint8_t  PWM_RESOLUTION_BITS = 10;  // 0 - 1023
 
 // Rango del comando de motor (int16 del host → PWM interno).
 // El host manda valores en [-32768, 32767]; los mapeamos a [-1023, 1023].

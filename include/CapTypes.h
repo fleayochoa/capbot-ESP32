@@ -1,4 +1,4 @@
-#pragma once  // Obligatorio: Evita que el archivo se incluya múltiples veces y cause errores
+#pragma once  //Evita que el archivo se incluya múltiples veces 
 #include <stdint.h>
 #include <Arduino.h>
 
