@@ -48,7 +48,18 @@ void Odometry::update(const SensorHub::Telemetry& telemetry, bool useInternalFus
     // Filtro complementario
     else {
         float theta_gyro = state_.theta + state_.omega * dt;
-        float theta_mag = atan2(telemetry.imu_mag.x,telemetry.imu_mag.y) * RAD_TO_DEG;
+        float theta_mag;
+        if (telemetry.imu_mag.x == 0) {
+            if (telemetry.imu_mag.y > 0) {
+                theta_mag = 90.0;
+            }
+            else if (telemetry.imu_mag.y < 0) {
+                theta_mag = 90.0;
+            }
+        }
+        else {
+            theta_mag = atan2(telemetry.imu_mag.x,telemetry.imu_mag.y) * RAD_TO_DEG;
+        }
         state_.theta = alpha * theta_gyro + (1 - alpha) * theta_mag;
     }
     // Integración de la posición (metros)
