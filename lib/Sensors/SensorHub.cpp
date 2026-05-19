@@ -23,6 +23,7 @@ void SensorHub::sample() {
     last_.imu_accel        = imu_.readAccel();
     last_.imu_gyro         = imu_.readGyro();
     last_.imu_mag          = imu_.readMag();
+    imu_.readEuler(last_.imu_euler);
     last_.uptime_ms        = millis();
 }
 
@@ -32,7 +33,7 @@ void SensorHub::feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking)
     last_.braking         = braking;
 }
 
-size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap) {
+size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state) {
     // Documento JSON en stack. Tamaño generoso para los ~12 campos actuales;
     // ajustar si crece.
     StaticJsonDocument<384> doc;
@@ -53,6 +54,14 @@ size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap) {
     imu["mx"]    = last_.imu_mag.x;
     imu["my"]    = last_.imu_mag.y;
     imu["mz"]    = last_.imu_mag.z;
+
+    // Inyección del estado estimado por la clase Odometry
+    JsonObject odo = doc.createNestedObject("odo");
+    odo["x"]       = state.x;      // Posición X en metros
+    odo["y"]       = state.y;      // Posición Y en metros
+    odo["th"]      = state.theta;  // Orientación en grados
+    odo["v"]       = state.v;      // Velocidad lineal en m/s
+    odo["om"]      = state.omega;  // Velocidad angular en grados/s
 
     const size_t n = serializeJson(doc, out, out_cap);
     if (n == 0 || n >= out_cap) return 0;

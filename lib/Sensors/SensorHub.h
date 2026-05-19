@@ -15,7 +15,7 @@
 #include "QuadratureEncoder.h"
 #include "CapTypes.h"
 #include "IMUSensor.h"
-
+#include "Odometry.h"
 
 class SensorHub {
 public:
@@ -34,6 +34,7 @@ public:
         IMUSensor::Vec3    imu_accel;
         IMUSensor::Vec3    imu_gyro;
         IMUSensor::Vec3    imu_mag;
+        IMUSensor::Euler   imu_euler;
         uint32_t uptime_ms;
     };
 
@@ -51,7 +52,7 @@ public:
 
     // Serializa la telemetría a JSON en el buffer dado. Devuelve bytes
     // escritos (sin NUL final) o 0 en error.
-    size_t buildPayload(uint8_t* out, size_t out_cap);
+    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state);
 
     const Telemetry& last() const { return last_; }
 
