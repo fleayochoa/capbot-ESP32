@@ -16,7 +16,9 @@ void Odometry::reset() {
     lastUpdateMs_ = 0;
 }
 
-void Odometry::update(const SensorHub::Telemetry& telemetry) {
+void Odometry::update(const SensorHub::Telemetry& telemetry, bool useInternalFusion) {
+    float alpha = 0.98;
+
     if (lastUpdateMs_ == 0) {
         lastUpdateMs_ = telemetry.uptime_ms;
         return;
@@ -40,8 +42,15 @@ void Odometry::update(const SensorHub::Telemetry& telemetry) {
     state_.omega = telemetry.imu_gyro.z; 
 
     // Uso de la fusión interna (grados)
-    state_.theta += telemetry.imu_euler.heading;
-
+    if (useInternalFusion) {
+        state_.theta += telemetry.imu_euler.heading;
+    }
+    // Filtro complementario
+    else {
+        float theta_gyro = state_.theta + state_.omega * dt;
+        float theta_mag = atan2(telemetry.imu_mag.x,telemetry.imu_mag.y) * RAD_TO_DEG;
+        state_.theta = alpha * theta_gyro + (1 - alpha) * theta_mag;
+    }
     // Integración de la posición (metros)
     float thetaRad = state_.theta * DEG_TO_RAD;
     state_.x += state_.v * cos(thetaRad) * dt;

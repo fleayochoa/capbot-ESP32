@@ -20,7 +20,7 @@ public:
     void begin();
     
     // Calcula la cinemática usando la telemetría agregada del SensorHub
-    void update(const SensorHub::Telemetry& telemetry);
+    void update(const SensorHub::Telemetry& telemetry, bool useInternalFusion);
     
     void reset();
 
