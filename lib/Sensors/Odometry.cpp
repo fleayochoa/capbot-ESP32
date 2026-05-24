@@ -16,16 +16,16 @@ void Odometry::reset() {
     lastUpdateMs_ = 0;
 }
 
-void Odometry::update(const SensorHub::Telemetry& telemetry, bool useInternalFusion) {
+StateEstimate Odometry::update(const SensorHub::Telemetry& telemetry, bool useInternalFusion) {
     float alpha = 0.98;
 
     if (lastUpdateMs_ == 0) {
         lastUpdateMs_ = telemetry.uptime_ms;
-        return;
+        return state_;
     }
 
     float dt = static_cast<float>(telemetry.uptime_ms - lastUpdateMs_) / 1000.0f;
-    if (dt <= 0.0f) return;
+    if (dt <= 0.0f) return state_;
 
     // Factor de conversión: de cuentas por segundo a metros por segundo
     const float factor = (PI * wheelDiameter_) / cpr_;
@@ -68,4 +68,5 @@ void Odometry::update(const SensorHub::Telemetry& telemetry, bool useInternalFus
     state_.y += state_.v * sin(thetaRad) * dt;
 
     lastUpdateMs_ = telemetry.uptime_ms;
+    return state_;
 }

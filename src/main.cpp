@@ -24,6 +24,7 @@
 #include "JetsonLink.h"
 #include "MotorDriver.h"
 #include "SensorHub.h"
+#include "Odometry.h"
 #include "CapTypes.h"
 // ---- Types ----
 Capbot::encoderPins encPins = {
@@ -36,6 +37,7 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 static JetsonLink  g_link;
 static MotorDriver g_motors(leftMotorPins, rightMotorPins, Pins::LEDC_CH_LEFT, Pins::LEDC_CH_RIGHT);
 static SensorHub   g_sensors(encPins, PCNT_UNIT_0, PCNT_UNIT_1, 100);
+static Odometry    g_odometry;
 
 // Timestamps para schedulers cooperativos
 static uint32_t g_lastTelemetryMs = 0;
@@ -94,8 +96,10 @@ static void runTelemetry() {
     g_sensors.feedMotorStatus(
         g_motors.leftPwm(), g_motors.rightPwm(), g_motors.isBraking());
 
+    const StateEstimate state = g_odometry.update(g_sensors.last(), false);
+
     uint8_t payload[Cfg::MAX_FRAME_PAYLOAD];
-    const size_t n = g_sensors.buildPayload(payload, sizeof(payload));
+    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), state);
     if (n > 0) {
         g_link.sendTelemetry(payload, n);
     }
@@ -129,6 +133,7 @@ void setup() {
     g_link.begin();
     g_motors.begin();  // arranca en freno
     g_sensors.begin();
+    g_odometry.begin();
 
     g_link.onMotorCmd(&onMotorCmd, nullptr);
     g_link.onBrake   (&onBrake,    nullptr);
