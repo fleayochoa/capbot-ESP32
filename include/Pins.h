@@ -38,4 +38,8 @@ constexpr uint8_t ENC_LEFT_B = 32;
 constexpr uint8_t ENC_RIGHT_A = 26;
 constexpr uint8_t ENC_RIGHT_B = 27;
 
+// --- VL53L0X ToF sensors (XSHUT) ---
+constexpr uint8_t TOF_XSHUT1 = 25;   // sensor1 → reassigned to 0x30
+constexpr uint8_t TOF_XSHUT2 = 23;  // sensor2 → stays at 0x29
+
 }  // namespace Pins

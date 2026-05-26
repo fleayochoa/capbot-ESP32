@@ -16,12 +16,14 @@
 #include "CapTypes.h"
 #include "IMUSensor.h"
 #include "Odometry.h"
+#include "ToFSensors.h"
 
 class SensorHub {
 public:
 
     SensorHub(Capbot::encoderPins encPins, pcnt_unit_t encUnitLeft,
-         pcnt_unit_t encUnitRight, uint16_t filter = 100);
+         pcnt_unit_t encUnitRight, uint8_t tofXshut1, uint8_t tofXshut2,
+         uint16_t filter = 100);
 
     struct Telemetry {
         int32_t enc_left;
@@ -35,6 +37,8 @@ public:
         IMUSensor::Vec3    imu_gyro;
         IMUSensor::Vec3    imu_mag;
         IMUSensor::Euler   imu_euler;
+        uint16_t tof_sensor1_mm;  // range from sensor1 (addr 0x30)
+        uint16_t tof_sensor2_mm;  // range from sensor2 (addr 0x29)
         uint32_t uptime_ms;
     };
 
@@ -61,4 +65,5 @@ private:
     QuadratureEncoder encR_;
     Telemetry last_{};
     IMUSensor imu_;
+    ToFSensors tof_;
 };

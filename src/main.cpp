@@ -26,6 +26,7 @@
 #include "SensorHub.h"
 #include "Odometry.h"
 #include "CapTypes.h"
+#include "Control.h"
 // ---- Types ----
 Capbot::encoderPins encPins = {
     static_cast<gpio_num_t>(Pins::ENC_LEFT_A), static_cast<gpio_num_t>(Pins::ENC_LEFT_B),
@@ -34,16 +35,22 @@ Capbot::encoderPins encPins = {
 Capbot::motorPins leftMotorPins = {Pins::LEFT_IN1, Pins::LEFT_IN2, Pins::LEFT_ENA};
 Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGHT_ENA};
 // ---- Instancias globales ----
-static JetsonLink  g_link;
-static MotorDriver g_motors(leftMotorPins, rightMotorPins, Pins::LEDC_CH_LEFT, Pins::LEDC_CH_RIGHT);
-static SensorHub   g_sensors(encPins, PCNT_UNIT_0, PCNT_UNIT_1, 100);
-static Odometry    g_odometry;
+static JetsonLink   g_link;
+static MotorDriver  g_motors(leftMotorPins, rightMotorPins, Pins::LEDC_CH_LEFT, Pins::LEDC_CH_RIGHT);
+static SensorHub    g_sensors(encPins, PCNT_UNIT_0, PCNT_UNIT_1, Pins::TOF_XSHUT1, Pins::TOF_XSHUT2, 100);
+static Odometry     g_odometry;
+static Controlador  g_controller(DEFAULT_CTRL_CFG);
 
-// Timestamps para schedulers cooperativos
-static uint32_t g_lastTelemetryMs = 0;
+// ---- Estado de control ----
+static struct {
+    float x      = 0.0f;
+    float y      = 0.0f;
+    float angPos = 0.0f;
+} g_setpoint;
 
-// Flag: Disparo del freno por watchdog. 
-static bool g_watchdogTriggered = false;
+static bool     g_autonomousMode    = false;
+static uint32_t g_lastTelemetryMs   = 0;
+static bool     g_watchdogTriggered = false;
 
 // ==============================================================
 // Callbacks del JetsonLink
