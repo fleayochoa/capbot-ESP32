@@ -35,6 +35,14 @@ Capbot::encoderPins encPins = {
 Capbot::motorPins leftMotorPins = {Pins::LEFT_IN1, Pins::LEFT_IN2, Pins::LEFT_ENA};
 Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGHT_ENA};
 // ---- Instancias globales ----
+static const Controlador::Config DEFAULT_CTRL_CFG = {
+    { 1.5f,     0.0f, 0.0f, -0.5f,    0.5f,    1.0f    },  // linearPosPid
+    { 20000.0f, 0.0f, 0.0f, -32767.0f, 32767.0f, 50000.0f },  // linearVelPid
+    { 2.0f,     0.0f, 0.0f, -90.0f,   90.0f,  180.0f   },  // angularPosPid
+    { 300.0f,   0.0f, 0.0f, -32767.0f, 32767.0f, 50000.0f },  // angularVelPid
+    0.02f, 2.0f, 32767.0f   // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
+};
+
 static JetsonLink   g_link;
 static MotorDriver  g_motors(leftMotorPins, rightMotorPins, Pins::LEDC_CH_LEFT, Pins::LEDC_CH_RIGHT);
 static SensorHub    g_sensors(encPins, PCNT_UNIT_0, PCNT_UNIT_1, Pins::TOF_XSHUT1, Pins::TOF_XSHUT2, 100);
