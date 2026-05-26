@@ -56,7 +56,6 @@ static struct {
     float angPos = 0.0f;
 } g_setpoint;
 
-static bool     g_autonomousMode    = false;
 static uint32_t g_lastTelemetryMs   = 0;
 static bool     g_watchdogTriggered = false;
 

@@ -1,4 +1,5 @@
 #include "SensorHub.h"
+#include "Odometry.h"
 
 #include <ArduinoJson.h>
 

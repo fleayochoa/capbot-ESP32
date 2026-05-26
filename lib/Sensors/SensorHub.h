@@ -15,8 +15,9 @@
 #include "QuadratureEncoder.h"
 #include "CapTypes.h"
 #include "IMUSensor.h"
-#include "Odometry.h"
 #include "ToFSensors.h"
+
+struct StateEstimate;
 
 class SensorHub {
 public:
