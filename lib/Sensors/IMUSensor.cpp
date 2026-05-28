@@ -69,7 +69,7 @@ IMUSensor::Vec3 IMUSensor::readGyro() {
     Vec3 v;
     // Adafruit configura UNIT_SEL con gyro en RPS. Convertimos a DPS para
     // mantener la misma semántica del driver anterior.
-    copyVec(bno_.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE), v, RPS_TO_DPS);
+    copyVec(bno_.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE), v);
     return v;
 }
 

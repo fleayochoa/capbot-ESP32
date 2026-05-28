@@ -49,25 +49,10 @@ Controlador::MotorCommand Controlador::compute(
     const float linearPosError  = sqrt((setpoint.xPosition - state.xPosition) * (setpoint.xPosition - state.xPosition) +
                                       (setpoint.yPosition - state.yPosition) *
                                       (setpoint.yPosition - state.yPosition));
-    const float angularPosError = atan2(setpoint.yPosition - state.yPosition, setpoint.xPosition - state.xPosition) 
+    const float angularPosError = atan2(setpoint.yPosition - state.yPosition, setpoint.xPosition - state.xPosition) * RAD_TO_DEG
                                         - state.angularPosition;
 
-    // ---- Condición de Parada / Frenado (Tolerancia Theta) ----
-    // Si el error posicional cae dentro de la tolerancia, forzamos salida 0 y freno.
-    if (absFloat(linearPosError) < config_.thetaPositionTolerance &&
-        absFloat(angularPosError) < config_.thetaAngleTolerance) {
-        
-        // Se reinician los integradores de velocidad para evitar arranques bruscos
-        // por acumulación previa (windup) si el setpoint vuelve a cambiar.
-        linearVelPid_.reset();
-        angularVelPid_.reset();
-        
-        cmd.left  = 0.0f;
-        cmd.right = 0.0f;
-        cmd.brake = true;
-        return cmd;
-    }
-
+ 
     // ---- Lazo Lineal en Cascada ----
     // 1. El PID de posición lineal calcula la velocidad lineal requerida
     float targetAngularVel = 0.0f;
@@ -77,12 +62,14 @@ Controlador::MotorCommand Controlador::compute(
 
 
     if (absFloat(linearPosError) < config_.thetaPositionTolerance) {
-        // Si estamos dentro de la tolerancia de posición, no corregimos la velocidad
-        // para evitar oscilaciones finas. Solo corregimos la orientación angular.
-        linearPosPid_.reset();
+        // Si estamos dentro de la tolerancia de posición, llegamos
         linearVelPid_.reset();
-        targetLinearVel = 0.0f;
-        linearEffort = 0.0f;
+        angularVelPid_.reset();
+        
+        cmd.left  = 0.0f;
+        cmd.right = 0.0f;
+        cmd.brake = true;
+        return cmd;
     } else {
         // Si el error de posición es grande, permitimos que el PID de posición lineal
         // genere una velocidad que el PID de velocidad intentará alcanzar.
@@ -114,8 +101,8 @@ Controlador::MotorCommand Controlador::compute(
     // ---- Mezclador (Cinemática Inversa Diferencial) ----
     // Rueda izquierda = Esfuerzo lineal - Esfuerzo angular
     // Rueda derecha   = Esfuerzo lineal + Esfuerzo angular
-    const float leftOut  = linearEffort - 0.5 * angularEffort;
-    const float rightOut = linearEffort + 0.5 * angularEffort;
+    const float leftOut  = linearEffort - angularEffort;
+    const float rightOut = linearEffort + angularEffort;
 
     // Saturación final de los comandos aplicados a los motores
     cmd.left  = clampFloat(leftOut,  -config_.maxMotorOutput, config_.maxMotorOutput);

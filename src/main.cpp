@@ -38,11 +38,11 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 //   angularPosPid : grados -> setpoint deg/s
 //   angularVelPid : deg/s  -> esfuerzo diferencial [-32767, 32767]
 static const Controlador::Config DEFAULT_CTRL_CFG = {
-    { 1.5f,     0.0f, 0.0f, -0.5f,    0.5f,    0.5f    },  // linearPosPid
-    { 20000.0f, 0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // linearVelPid
-    { 2.0f,     0.0f, 0.0f, -30.0f,   30.0f,  20.0f   },  // angularPosPid
-    { 300.0f,   0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // angularVelPid
-    0.05f, 5.0f, 32767.0f    // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
+    { 4.0f,     3.0f, 0.1f, -0.5f,    0.5f,    0.5f    },  // linearPosPid
+    { 50000.0f, 0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // linearVelPid
+    { 20.0f,     0.0f, 0.1f, -30.0f,   30.0f,  20.0f   },  // angularPosPid
+    { 150.0f,   0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // angularVelPid
+    0.1f, 10.0f, 32767.0f    // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
 };
 
 // ---- Instancias globales ----

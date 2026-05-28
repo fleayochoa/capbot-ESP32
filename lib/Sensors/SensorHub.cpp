@@ -57,6 +57,10 @@ size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate
     sp["v"] = ctrl.sp_v;
     sp["w"] = ctrl.sp_w;
     
+    JsonObject err = doc.createNestedObject("error");
+    err["pos"] = sqrt((ctrl.sp_x - state.x) * (ctrl.sp_x - state.x) + (ctrl.sp_y - state.y) * (ctrl.sp_y - state.y));
+    err["ang"] = atan2(ctrl.sp_y - state.y, ctrl.sp_x - state.x) * RAD_TO_DEG
+                                        - state.theta;
 
     const size_t n = serializeJson(doc, out, out_cap);
     if (n == 0 || n >= out_cap) return 0;
