@@ -43,7 +43,7 @@ StateEstimate Odometry::update(const SensorHub::Telemetry& telemetry, bool useIn
 
     // Uso de la fusión interna (grados)
     if (useInternalFusion) {
-        state_.theta += telemetry.imu_euler.heading;
+        state_.theta = telemetry.imu_euler.heading;
     }
     // Filtro complementario
     else {
