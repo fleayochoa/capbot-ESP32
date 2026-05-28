@@ -18,6 +18,7 @@
 class JetsonLink {
 public:
     using MotorCallback     = void (*)(int16_t left, int16_t right, int16_t aux, void* ctx);
+    using VelCallback       = void (*)(int16_t v_mms, int16_t w_mrad_s, void* ctx);
     using VoidCallback      = void (*)(void* ctx);
 
     JetsonLink() = default;
@@ -30,9 +31,10 @@ public:
     void tick();
 
     // ---- Registro de callbacks ----
-    void onMotorCmd(MotorCallback cb, void* ctx)   { cbMotor_  = cb; ctxMotor_  = ctx; }
-    void onBrake   (VoidCallback  cb, void* ctx)   { cbBrake_  = cb; ctxBrake_  = ctx; }
-    void onHeartbeat(VoidCallback cb, void* ctx)   { cbHb_     = cb; ctxHb_     = ctx; }
+    void onMotorCmd (MotorCallback cb, void* ctx)  { cbMotor_  = cb; ctxMotor_  = ctx; }
+    void onVelCmd   (VelCallback   cb, void* ctx)  { cbVel_    = cb; ctxVel_    = ctx; }
+    void onBrake    (VoidCallback  cb, void* ctx)  { cbBrake_  = cb; ctxBrake_  = ctx; }
+    void onHeartbeat(VoidCallback  cb, void* ctx)  { cbHb_     = cb; ctxHb_     = ctx; }
 
     // ---- Envío ----
     // Manda TELEMETRY con el payload dado. Devuelve true si se envió.
@@ -56,6 +58,7 @@ private:
     Protocol::StreamParser parser_;
 
     MotorCallback cbMotor_ = nullptr;  void* ctxMotor_ = nullptr;
+    VelCallback   cbVel_   = nullptr;  void* ctxVel_   = nullptr;
     VoidCallback  cbBrake_ = nullptr;  void* ctxBrake_ = nullptr;
     VoidCallback  cbHb_    = nullptr;  void* ctxHb_    = nullptr;
 

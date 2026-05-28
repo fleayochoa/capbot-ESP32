@@ -92,3 +92,18 @@ Controlador::MotorCommand Controlador::compute(
 
     return cmd;
 }
+
+Controlador::MotorCommand Controlador::computeVelocity(
+    const VelSetpoint& setpoint, const State& state, float dt) {
+
+    MotorCommand cmd = {0.0f, 0.0f, false};
+    if (dt <= 0.0f) return cmd;
+
+    const float linearEffort  = linearVelPid_.compute(setpoint.linearVelocity,  state.linearVelocity,  dt);
+    const float angularEffort = angularVelPid_.compute(setpoint.angularVelocity, state.angularVelocity, dt);
+
+    cmd.left  = clampFloat(linearEffort - angularEffort, -config_.maxMotorOutput, config_.maxMotorOutput);
+    cmd.right = clampFloat(linearEffort + angularEffort, -config_.maxMotorOutput, config_.maxMotorOutput);
+    cmd.brake = false;
+    return cmd;
+}

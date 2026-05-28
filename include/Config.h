@@ -33,11 +33,18 @@ constexpr int32_t CMD_FULL_SCALE = 32768;
 constexpr size_t MAX_FRAME_PAYLOAD = 240;  // TELEMETRY JSON cabe holgado
 constexpr size_t RX_BUFFER_BYTES = 512;
 
+// -------- Control de velocidad ROS2 --------
+// Tiempo máximo sin recibir VEL_CMD antes de detener los motores.
+// El watchdog del link (JETSON_WATCHDOG_MS) maneja la pérdida total del enlace;
+// este timeout cubre el caso en que Nav2 deja de publicar /cmd_vel.
+constexpr uint32_t VEL_CMD_TIMEOUT_MS = 300;
+
 // -------- Tipos de mensaje serial (mantener sincronizado con Jetson) --------
 namespace MsgType {
     constexpr uint8_t MOTOR_CMD  = 0x10;  // Jetson -> ESP32
     constexpr uint8_t BRAKE_ON   = 0x11;  // Jetson -> ESP32
     constexpr uint8_t HEARTBEAT  = 0x12;  // Jetson -> ESP32
+    constexpr uint8_t VEL_CMD    = 0x13;  // Jetson -> ESP32  (int16 v_mms, int16 w_mrad_s)
     constexpr uint8_t TELEMETRY  = 0x20;  // ESP32 -> Jetson
     constexpr uint8_t ESP_HELLO  = 0x21;  // ESP32 -> Jetson
 }

@@ -39,10 +39,16 @@ public:
         float angularVelocity;
     };
 
-    // Estructura para los objetivos de control
+    // Estructura para los objetivos de control (modo posición)
     struct Setpoint {
         float linearPosition;
         float angularPosition;
+    };
+
+    // Objetivos de control en modo velocidad (ROS2 /cmd_vel)
+    struct VelSetpoint {
+        float linearVelocity;   // m/s
+        float angularVelocity;  // rad/s
     };
 
     // Salida final mapeada para los drivers de los motores
@@ -60,8 +66,12 @@ public:
     // Actualiza las ganancias y parámetros al vuelo
     void setConfig(const Config& config);
 
-    // Ejecuta el cálculo completo de la cascada y la mezcla diferencial
+    // Ejecuta el cálculo completo de la cascada y la mezcla diferencial (modo posición)
     MotorCommand compute(const Setpoint& setpoint, const State& state, float dt);
+
+    // Control de velocidad directo para /cmd_vel de ROS2.
+    // Bypasea los lazos de posición y corre sólo los PIDs de velocidad.
+    MotorCommand computeVelocity(const VelSetpoint& setpoint, const State& state, float dt);
 
     const Config& config() const { return config_; }
 

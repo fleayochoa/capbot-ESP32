@@ -53,6 +53,13 @@ void JetsonLink::dispatchFrame() {
         case Cfg::MsgType::HEARTBEAT:
             if (cbHb_) cbHb_(ctxHb_);
             break;
+        case Cfg::MsgType::VEL_CMD: {
+            if (n < 4) return;  // esperamos 2 int16 little-endian: v_mms, w_mrad_s
+            int16_t V = static_cast<int16_t>(static_cast<uint16_t>(p[0]) | (static_cast<uint16_t>(p[1]) << 8));
+            int16_t W = static_cast<int16_t>(static_cast<uint16_t>(p[2]) | (static_cast<uint16_t>(p[3]) << 8));
+            if (cbVel_) cbVel_(V, W, ctxVel_);
+            break;
+        }
         default:
             // Tipos desconocidos se ignoran. No corrompen el stream porque el
             // framing COBS+CRC ya validó el frame.

@@ -56,6 +56,14 @@ static struct {
     float angPos = 0.0f;
 } g_setpoint;
 
+// Setpoint de velocidad proveniente de ROS2 /cmd_vel (via VEL_CMD).
+static struct {
+    float    v_mps    = 0.0f;   // m/s
+    float    w_rads   = 0.0f;   // rad/s
+    uint32_t lastMs   = 0;      // millis() del último VEL_CMD recibido
+    bool     active   = false;  // true: modo velocidad activo
+} g_vel;
+
 static uint32_t g_lastTelemetryMs   = 0;
 static bool     g_watchdogTriggered = false;
 
@@ -64,11 +72,21 @@ static bool     g_watchdogTriggered = false;
 // ==============================================================
 static void onMotorCmd(int16_t left, int16_t right, int16_t aux, void* /*ctx*/) {
     (void)aux;  // aux reservado para futuro (luces, brazo, etc.)
+    g_vel.active = false;  // MOTOR_CMD toma prioridad sobre el control de velocidad
     g_motors.drive(left, right);
     g_watchdogTriggered = false;
 }
 
+static void onVelCmd(int16_t v_mms, int16_t w_mrad_s, void* /*ctx*/) {
+    g_vel.v_mps  = v_mms   * 1e-3f;   // mm/s  → m/s
+    g_vel.w_rads = w_mrad_s * 1e-3f;  // mrad/s → rad/s
+    g_vel.lastMs = millis();
+    g_vel.active = true;
+    g_watchdogTriggered = false;
+}
+
 static void onBrake(void* /*ctx*/) {
+    g_vel.active = false;
     g_motors.brake();
 }
 
@@ -104,16 +122,42 @@ static void runWatchdog() {
 static void runTelemetry() {
     const uint32_t now = millis();
     if (now - g_lastTelemetryMs < Cfg::TELEMETRY_PERIOD_MS) return;
+    const float dt = (g_lastTelemetryMs > 0)
+        ? (now - g_lastTelemetryMs) * 1e-3f
+        : Cfg::TELEMETRY_PERIOD_MS * 1e-3f;
     g_lastTelemetryMs = now;
 
     g_sensors.sample();
     g_sensors.feedMotorStatus(
         g_motors.leftPwm(), g_motors.rightPwm(), g_motors.isBraking());
 
-    const StateEstimate state = g_odometry.update(g_sensors.last(), true);
+    const StateEstimate est = g_odometry.update(g_sensors.last(), true);
+
+    // Control de velocidad para ROS2 /cmd_vel
+    if (g_vel.active) {
+        if (now - g_vel.lastMs > Cfg::VEL_CMD_TIMEOUT_MS) {
+            // /cmd_vel dejó de llegar; detenemos suavemente
+            g_vel.active = false;
+            g_controller.reset();
+            g_motors.brake();
+        } else {
+            Controlador::VelSetpoint sp { g_vel.v_mps, g_vel.w_rads };
+            // omega del StateEstimate está en grados/s; el PID usa rad/s
+            Controlador::State cs {
+                0.0f, est.v,
+                0.0f, est.omega * (M_PI / 180.0f)
+            };
+            const Controlador::MotorCommand mc = g_controller.computeVelocity(sp, cs, dt);
+            if (mc.brake) {
+                g_motors.brake();
+            } else {
+                g_motors.drive(static_cast<int16_t>(mc.left), static_cast<int16_t>(mc.right));
+            }
+        }
+    }
 
     uint8_t payload[Cfg::MAX_FRAME_PAYLOAD];
-    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), state);
+    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), est);
     if (n > 0) {
         g_link.sendTelemetry(payload, n);
     }
@@ -149,8 +193,9 @@ void setup() {
     g_sensors.begin();
     g_odometry.begin();
 
-    g_link.onMotorCmd(&onMotorCmd, nullptr);
-    g_link.onBrake   (&onBrake,    nullptr);
+    g_link.onMotorCmd (&onMotorCmd,  nullptr);
+    g_link.onVelCmd   (&onVelCmd,    nullptr);
+    g_link.onBrake    (&onBrake,     nullptr);
     g_link.onHeartbeat(&onHeartbeat, nullptr);
 
     // Anunciamos a la Jetson que arrancamos (y reiniciamos el contador
