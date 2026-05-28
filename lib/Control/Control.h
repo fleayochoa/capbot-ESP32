@@ -33,7 +33,8 @@ public:
 
     // Estructura para agrupar las mediciones actuales (realimentación)
     struct State {
-        float linearPosition;
+        float xPosition;
+        float yPosition;
         float linearVelocity;
         float angularPosition; // Orientación absoluta (yaw/theta)
         float angularVelocity;
@@ -41,7 +42,8 @@ public:
 
     // Estructura para los objetivos de control
     struct Setpoint {
-        float linearPosition;
+        float xPosition;
+        float yPosition;
         float angularPosition;
     };
 
@@ -50,6 +52,8 @@ public:
         float left;
         float right;
         bool brake; // Bandera explícita por si se desea invocar motorDriver.brake()
+        float targetLinVel;
+        float targetAngVel;
     };
 
     explicit Controlador(const Config& config);

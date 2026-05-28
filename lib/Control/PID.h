@@ -38,17 +38,19 @@ public:
     //   measurement : Valor actual medido (realimentación)
     //   dt          : Tiempo transcurrido desde la última ejecución (en segundos)
     // Retorna la señal de control calculada y saturada.
-    float compute(float setpoint, float measurement, float dt);
+    float compute(float error, float dt);
 
     // Getters para inspección o telemetría
     float lastOutput() const { return lastOutput_; }
-    float integralError() const { return integralError_; }
+    // float integralError() const { return integralError_; }
+    
     const Config& config() const { return config_; }
 
 private:
     Config config_;
 
-    float integralError_ = 0.0f;
-    float lastError_     = 0.0f;
+    // float integralError_ = 0.0f;
+    // float lastError_     = 0.0f;
+    float errorBuf_[3] = {0.0f, 0.0f, 0.0f}; // Buffer circular para error en t, t-1 y t-2
     float lastOutput_    = 0.0f;
 };

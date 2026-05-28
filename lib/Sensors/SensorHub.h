@@ -52,11 +52,7 @@ public:
     void feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking);
 
     struct ControlTelemetry {
-        float sp_x, sp_y, sp_ang;
-        float lp_kp, lp_ki, lp_kd;
-        float lv_kp, lv_ki, lv_kd;
-        float ap_kp, ap_ki, ap_kd;
-        float av_kp, av_ki, av_kd;
+        float sp_x, sp_y, sp_ang, sp_v, sp_w;
     };
 
     // Serializa la telemetría a JSON en el buffer dado. Devuelve bytes

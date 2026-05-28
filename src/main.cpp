@@ -38,11 +38,11 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 //   angularPosPid : grados -> setpoint deg/s
 //   angularVelPid : deg/s  -> esfuerzo diferencial [-32767, 32767]
 static const Controlador::Config DEFAULT_CTRL_CFG = {
-    { 0.3f,     0.0f, 0.0f, -0.5f,    0.5f,    0.5f    },  // linearPosPid
-    { 12000.0f, 0.0f, 0.0f, -32767.0f*0.75, 32767.0f*0.75, 50000.0f },  // linearVelPid
-    { 0.8f,     0.0f, 0.0f, -20.0f,   20.0f,  20.0f   },  // angularPosPid
-    { 100.0f,   0.0f, 0.0f, -32767.0f*0.75, 32767.0f*0.75, 50000.0f },  // angularVelPid
-    0.05f, 10.0f, 32767.0f   // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
+    { 1.5f,     0.0f, 0.0f, -0.5f,    0.5f,    0.5f    },  // linearPosPid
+    { 20000.0f, 0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // linearVelPid
+    { 2.0f,     0.0f, 0.0f, -30.0f,   30.0f,  20.0f   },  // angularPosPid
+    { 300.0f,   0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // angularVelPid
+    0.05f, 5.0f, 32767.0f    // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
 };
 
 // ---- Instancias globales ----
@@ -57,12 +57,18 @@ static struct {
     float x      = 0.0f;
     float y      = 0.0f;
     float angPos = 0.0f;
+    float v      = 0.0f;
+    float w      = 0.0f;
 } g_setpoint;
 
 static bool     g_autonomousMode    = false;
 static uint32_t g_lastTelemetryMs   = 0;
 static bool     g_watchdogTriggered = false;
 
+
+// Doble nucleo
+TaskHandle_t ControlTaskHandle;
+TaskHandle_t TelemetryTaskHandle;
 // ==============================================================
 // Callbacks del JetsonLink
 // ==============================================================
@@ -140,16 +146,20 @@ static void runControl(float dt) {
     const StateEstimate& odo = g_odometry.state();
 
     Controlador::State st;
-    st.linearPosition  = odo.x;
+    st.xPosition  = odo.x;
+    st.yPosition = odo.y;
     st.linearVelocity  = odo.v;
     st.angularPosition = odo.theta;
     st.angularVelocity = odo.omega;
 
     Controlador::Setpoint sp;
-    sp.linearPosition  = g_setpoint.x;
+    sp.xPosition  = g_setpoint.x;
+    sp.yPosition  = g_setpoint.y;
     sp.angularPosition = g_setpoint.angPos;
 
     const Controlador::MotorCommand cmd = g_controller.compute(sp, st, dt);
+    g_setpoint.v = cmd.targetLinVel;
+    g_setpoint.w = cmd.targetAngVel;
     if (cmd.brake) {
         g_motors.brake();
     } else {
@@ -160,26 +170,18 @@ static void runControl(float dt) {
 static void runTelemetry() {
     const uint32_t now = millis();
     if (now - g_lastTelemetryMs < Cfg::TELEMETRY_PERIOD_MS) return;
-    const float dt = static_cast<float>(now - g_lastTelemetryMs) / 1000.0f;
     g_lastTelemetryMs = now;
 
     g_sensors.sample();
     g_sensors.feedMotorStatus(g_motors.leftPwm(), g_motors.rightPwm(), g_motors.isBraking());
     g_odometry.update(g_sensors.last(), true);
 
-    if (g_autonomousMode) {
-        runControl(dt);
-    }
-
-    const Controlador::Config& cfg = g_controller.config();
     SensorHub::ControlTelemetry ctrl;
     ctrl.sp_x  = g_setpoint.x;
     ctrl.sp_y  = g_setpoint.y;
     ctrl.sp_ang = g_setpoint.angPos;
-    ctrl.lp_kp = cfg.linearPosPid.kp;   ctrl.lp_ki = cfg.linearPosPid.ki;   ctrl.lp_kd = cfg.linearPosPid.kd;
-    ctrl.lv_kp = cfg.linearVelPid.kp;   ctrl.lv_ki = cfg.linearVelPid.ki;   ctrl.lv_kd = cfg.linearVelPid.kd;
-    ctrl.ap_kp = cfg.angularPosPid.kp;  ctrl.ap_ki = cfg.angularPosPid.ki;  ctrl.ap_kd = cfg.angularPosPid.kd;
-    ctrl.av_kp = cfg.angularVelPid.kp;  ctrl.av_ki = cfg.angularVelPid.ki;  ctrl.av_kd = cfg.angularVelPid.kd;
+    ctrl.sp_v = g_setpoint.v; 
+    ctrl.sp_w = g_setpoint.w; 
 
     uint8_t payload[Cfg::MAX_FRAME_PAYLOAD];
     const size_t n = g_sensors.buildPayload(payload, sizeof(payload), g_odometry.state(), g_autonomousMode, ctrl);
@@ -205,6 +207,10 @@ static void runStatusLed() {
 // ==============================================================
 // Arduino
 // ==============================================================
+
+void ControlTaskCode(void * pvParameters);
+void TelemetryTaskCode(void * pvParameters);
+
 void setup() {
     pinMode(Pins::STATUS_LED, OUTPUT);
     digitalWrite(Pins::STATUS_LED, HIGH);
@@ -222,12 +228,49 @@ void setup() {
     g_link.onModeCmd   (&onModeCmd,      nullptr);
 
     g_link.sendHello();
+
+    xTaskCreatePinnedToCore(
+      ControlTaskCode,
+      "Control",
+      10000,
+      NULL,
+      2,          /* Priority 2: above Arduino loop task (1) */
+      &ControlTaskHandle,
+      0);
+
+    xTaskCreatePinnedToCore(
+      TelemetryTaskCode,
+      "Telemetry",
+      10000,
+      NULL,
+      2,          /* Priority 2: above Arduino loop task (1) on Core 1 */
+      &TelemetryTaskHandle,
+      1);
 }
 
 void loop() {
+    
+}
+
+//Run control
+void ControlTaskCode( void * pvParameters ){
+  const TickType_t periodo      = pdMS_TO_TICKS(20); // Control se ejecuta cada 20ms
+  TickType_t       lastWakeTime = xTaskGetTickCount();
+  for(;;){
+    if (g_autonomousMode) {
+        runControl(0.02f);
+    }
+    vTaskDelayUntil(&lastWakeTime, periodo);
+  }
+}
+
+//Run Telemetry
+void TelemetryTaskCode( void * pvParameters ){
+  for(;;){
     g_link.tick();
     runWatchdog();
     runTelemetry();
     runStatusLed();
     delay(0);
+  }
 }

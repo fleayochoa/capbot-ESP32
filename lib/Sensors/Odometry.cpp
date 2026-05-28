@@ -55,7 +55,12 @@ void Odometry::update(const SensorHub::Telemetry& telemetry, bool useInternalFus
 
     // Uso de la fusión interna (grados)
     if (useInternalFusion) {
-        state_.theta = telemetry.imu_euler.heading;
+        float theta = telemetry.imu_euler.heading;
+        float theta_rad = theta * DEG_TO_RAD;
+
+        float error_rad = atan2(sin(theta_rad), cos(theta_rad));
+
+        state_.theta = error_rad * RAD_TO_DEG;
     }
     // Filtro complementario
     else {
