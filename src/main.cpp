@@ -38,11 +38,11 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 //   angularPosPid : grados -> setpoint deg/s
 //   angularVelPid : deg/s  -> esfuerzo diferencial [-32767, 32767]
 static const Controlador::Config DEFAULT_CTRL_CFG = {
-    { 1.5f,     0.0f, 0.0f, -0.5f,    0.5f,    1.0f    },  // linearPosPid
-    { 20000.0f, 0.0f, 0.0f, -32767.0f, 32767.0f, 50000.0f },  // linearVelPid
-    { 2.0f,     0.0f, 0.0f, -90.0f,   90.0f,  180.0f   },  // angularPosPid
-    { 300.0f,   0.0f, 0.0f, -32767.0f, 32767.0f, 50000.0f },  // angularVelPid
-    0.02f, 2.0f, 32767.0f   // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
+    { 0.3f,     0.0f, 0.0f, -0.5f,    0.5f,    0.5f    },  // linearPosPid
+    { 12000.0f, 0.0f, 0.0f, -32767.0f*0.75, 32767.0f*0.75, 50000.0f },  // linearVelPid
+    { 0.8f,     0.0f, 0.0f, -20.0f,   20.0f,  20.0f   },  // angularPosPid
+    { 100.0f,   0.0f, 0.0f, -32767.0f*0.75, 32767.0f*0.75, 50000.0f },  // angularVelPid
+    0.05f, 10.0f, 32767.0f   // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
 };
 
 // ---- Instancias globales ----
@@ -165,14 +165,24 @@ static void runTelemetry() {
 
     g_sensors.sample();
     g_sensors.feedMotorStatus(g_motors.leftPwm(), g_motors.rightPwm(), g_motors.isBraking());
-    g_odometry.update(g_sensors.last(), false);
+    g_odometry.update(g_sensors.last(), true);
 
     if (g_autonomousMode) {
         runControl(dt);
     }
 
+    const Controlador::Config& cfg = g_controller.config();
+    SensorHub::ControlTelemetry ctrl;
+    ctrl.sp_x  = g_setpoint.x;
+    ctrl.sp_y  = g_setpoint.y;
+    ctrl.sp_ang = g_setpoint.angPos;
+    ctrl.lp_kp = cfg.linearPosPid.kp;   ctrl.lp_ki = cfg.linearPosPid.ki;   ctrl.lp_kd = cfg.linearPosPid.kd;
+    ctrl.lv_kp = cfg.linearVelPid.kp;   ctrl.lv_ki = cfg.linearVelPid.ki;   ctrl.lv_kd = cfg.linearVelPid.kd;
+    ctrl.ap_kp = cfg.angularPosPid.kp;  ctrl.ap_ki = cfg.angularPosPid.ki;  ctrl.ap_kd = cfg.angularPosPid.kd;
+    ctrl.av_kp = cfg.angularVelPid.kp;  ctrl.av_ki = cfg.angularVelPid.ki;  ctrl.av_kd = cfg.angularVelPid.kd;
+
     uint8_t payload[Cfg::MAX_FRAME_PAYLOAD];
-    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), g_odometry.state());
+    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), g_odometry.state(), g_autonomousMode, ctrl);
     if (n > 0) {
         g_link.sendTelemetry(payload, n);
     }

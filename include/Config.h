@@ -30,7 +30,7 @@ constexpr uint8_t  PWM_RESOLUTION_BITS = 10;  // 0 - 1023
 constexpr int32_t CMD_FULL_SCALE = 32768;
 
 // -------- Tamaños de buffer del framing --------
-constexpr size_t MAX_FRAME_PAYLOAD = 240;  // TELEMETRY JSON cabe holgado
+constexpr size_t MAX_FRAME_PAYLOAD = 384;  // TELEMETRY JSON con odo + setpoint + PID gains
 constexpr size_t RX_BUFFER_BYTES = 512;
 
 // -------- Tipos de mensaje serial (mantener sincronizado con Jetson) --------

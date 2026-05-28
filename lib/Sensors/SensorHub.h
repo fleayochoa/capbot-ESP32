@@ -15,7 +15,8 @@
 #include "QuadratureEncoder.h"
 #include "CapTypes.h"
 #include "IMUSensor.h"
-#include "Odometry.h"
+
+struct StateEstimate;
 
 class SensorHub {
 public:
@@ -50,9 +51,17 @@ public:
     // MotorDriver. Así el payload es autocontenido.
     void feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking);
 
+    struct ControlTelemetry {
+        float sp_x, sp_y, sp_ang;
+        float lp_kp, lp_ki, lp_kd;
+        float lv_kp, lv_ki, lv_kd;
+        float ap_kp, ap_ki, ap_kd;
+        float av_kp, av_ki, av_kd;
+    };
+
     // Serializa la telemetría a JSON en el buffer dado. Devuelve bytes
     // escritos (sin NUL final) o 0 en error.
-    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state);
+    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, bool autonomousMode, const ControlTelemetry& ctrl);
 
     const Telemetry& last() const { return last_; }
 
