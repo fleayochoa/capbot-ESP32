@@ -29,6 +29,7 @@ public:
 private:
     float wheelDiameter_;
     float cpr_;
+    float lastOmegas[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}; // buffer para filtro de media móvil
     StateEstimate state_{};
     uint32_t lastUpdateMs_;
 };

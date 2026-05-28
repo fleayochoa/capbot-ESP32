@@ -18,7 +18,6 @@ void Odometry::reset() {
 
 StateEstimate Odometry::update(const SensorHub::Telemetry& telemetry, bool useInternalFusion) {
     float alpha = 0.98;
-
     if (lastUpdateMs_ == 0) {
         lastUpdateMs_ = telemetry.uptime_ms;
         return state_;
@@ -39,7 +38,11 @@ StateEstimate Odometry::update(const SensorHub::Telemetry& telemetry, bool useIn
     state_.v = 0.5f * (velLeft + velRight);
     
     // Uso del giroscopio crudo (eje Z) para la velocidad angular (grados/s)
-    state_.omega = telemetry.imu_gyro.z; 
+    for (int i = 4; i > 0; i--) {
+        lastOmegas[i] = lastOmegas[i - 1];
+    }
+    lastOmegas[0] = telemetry.imu_gyro.z;
+    state_.omega = 0.2f * (lastOmegas[0] + lastOmegas[1] + lastOmegas[2] + lastOmegas[3] + lastOmegas[4]);
 
     // Uso de la fusión interna (grados)
     if (useInternalFusion) {
