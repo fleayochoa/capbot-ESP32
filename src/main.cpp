@@ -110,7 +110,7 @@ static void runTelemetry() {
     g_sensors.feedMotorStatus(
         g_motors.leftPwm(), g_motors.rightPwm(), g_motors.isBraking());
 
-    const StateEstimate state = g_odometry.update(g_sensors.last(), false);
+    const StateEstimate state = g_odometry.update(g_sensors.last(), true);
 
     uint8_t payload[Cfg::MAX_FRAME_PAYLOAD];
     const size_t n = g_sensors.buildPayload(payload, sizeof(payload), state);
