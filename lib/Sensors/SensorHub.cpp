@@ -45,21 +45,6 @@ size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate
     StaticJsonDocument<512> doc;
 
     doc["t"]     = last_.uptime_ms;
-    JsonObject enc  = doc.createNestedObject("enc");
-    enc["l"]        = last_.enc_left;
-    enc["r"]        = last_.enc_right;
-    enc["lc"]   = last_.vel_left_cps;
-    enc["rc"]   = last_.vel_right_cps;
-
-    JsonObject mot  = doc.createNestedObject("mot");
-    mot["pl"]    = last_.motor_pwm_left;
-    mot["pr"]    = last_.motor_pwm_right;
-    mot["brk"]    = last_.braking;
-
-    JsonObject imu  = doc.createNestedObject("imu");
-    imu["mx"]    = last_.imu_mag.x;
-    imu["my"]    = last_.imu_mag.y;
-    imu["mz"]    = last_.imu_mag.z;
 
     // Inyección del estado estimado por la clase Odometry
     JsonObject odo = doc.createNestedObject("odo");
