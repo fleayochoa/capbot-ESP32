@@ -55,9 +55,13 @@ public:
     // MotorDriver. Así el payload es autocontenido.
     void feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking);
 
+    struct ControlTelemetry {
+        float sp_x, sp_y, sp_ang, sp_v, sp_w;
+    };
+
     // Serializa la telemetría a JSON en el buffer dado. Devuelve bytes
     // escritos (sin NUL final) o 0 en error.
-    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state);
+    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, bool autonomousMode, const ControlTelemetry& ctrl);
 
     const Telemetry& last() const { return last_; }
 

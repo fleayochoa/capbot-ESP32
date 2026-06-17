@@ -19,6 +19,9 @@ class JetsonLink {
 public:
     using MotorCallback     = void (*)(int16_t left, int16_t right, int16_t aux, void* ctx);
     using VoidCallback      = void (*)(void* ctx);
+    using PidParamCallback  = void (*)(uint8_t ctrl_id, uint8_t param_id, float value, void* ctx);
+    using SetpointCallback  = void (*)(uint8_t comp_id, float value, void* ctx);
+    using ModeCallback      = void (*)(uint8_t mode, void* ctx);
 
     JetsonLink() = default;
 
@@ -30,9 +33,12 @@ public:
     void tick();
 
     // ---- Registro de callbacks ----
-    void onMotorCmd(MotorCallback cb, void* ctx)   { cbMotor_  = cb; ctxMotor_  = ctx; }
-    void onBrake   (VoidCallback  cb, void* ctx)   { cbBrake_  = cb; ctxBrake_  = ctx; }
-    void onHeartbeat(VoidCallback cb, void* ctx)   { cbHb_     = cb; ctxHb_     = ctx; }
+    void onMotorCmd (MotorCallback    cb, void* ctx) { cbMotor_    = cb; ctxMotor_    = ctx; }
+    void onBrake    (VoidCallback     cb, void* ctx) { cbBrake_    = cb; ctxBrake_    = ctx; }
+    void onHeartbeat(VoidCallback     cb, void* ctx) { cbHb_       = cb; ctxHb_       = ctx; }
+    void onPidParam (PidParamCallback cb, void* ctx) { cbPidParam_ = cb; ctxPidParam_ = ctx; }
+    void onSetpoint (SetpointCallback cb, void* ctx) { cbSetpoint_ = cb; ctxSetpoint_ = ctx; }
+    void onModeCmd  (ModeCallback     cb, void* ctx) { cbMode_     = cb; ctxMode_     = ctx; }
 
     // ---- Envío ----
     // Manda TELEMETRY con el payload dado. Devuelve true si se envió.
@@ -55,9 +61,12 @@ private:
 
     Protocol::StreamParser parser_;
 
-    MotorCallback cbMotor_ = nullptr;  void* ctxMotor_ = nullptr;
-    VoidCallback  cbBrake_ = nullptr;  void* ctxBrake_ = nullptr;
-    VoidCallback  cbHb_    = nullptr;  void* ctxHb_    = nullptr;
+    MotorCallback    cbMotor_    = nullptr;  void* ctxMotor_    = nullptr;
+    VoidCallback     cbBrake_   = nullptr;  void* ctxBrake_    = nullptr;
+    VoidCallback     cbHb_      = nullptr;  void* ctxHb_       = nullptr;
+    PidParamCallback cbPidParam_ = nullptr; void* ctxPidParam_ = nullptr;
+    SetpointCallback cbSetpoint_ = nullptr; void* ctxSetpoint_ = nullptr;
+    ModeCallback     cbMode_    = nullptr;  void* ctxMode_     = nullptr;
 
     uint32_t lastRxMs_ = 0;
     uint32_t framesRx_ = 0;

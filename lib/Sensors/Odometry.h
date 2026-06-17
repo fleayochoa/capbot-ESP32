@@ -27,9 +27,16 @@ public:
     const StateEstimate& state() const { return state_; }
 
 private:
+    static constexpr uint8_t FILTER_WIN = 5;
+
     float wheelDiameter_;
     float cpr_;
     float lastOmegas[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}; // buffer para filtro de media móvil
     StateEstimate state_{};
     uint32_t lastUpdateMs_;
+
+    float thetaBuf_[FILTER_WIN]{};
+    float omegaBuf_[FILTER_WIN]{};
+    uint8_t filterIdx_ = 0;
+    bool filterFull_ = false;
 };

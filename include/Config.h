@@ -30,16 +30,19 @@ constexpr uint8_t  PWM_RESOLUTION_BITS = 10;  // 0 - 1023
 constexpr int32_t CMD_FULL_SCALE = 32768;
 
 // -------- Tamaños de buffer del framing --------
-constexpr size_t MAX_FRAME_PAYLOAD = 240;  // TELEMETRY JSON cabe holgado
+constexpr size_t MAX_FRAME_PAYLOAD = 384;  // TELEMETRY JSON con odo + setpoint + PID gains
 constexpr size_t RX_BUFFER_BYTES = 512;
 
 // -------- Tipos de mensaje serial (mantener sincronizado con Jetson) --------
 namespace MsgType {
-    constexpr uint8_t MOTOR_CMD  = 0x10;  // Jetson -> ESP32
-    constexpr uint8_t BRAKE_ON   = 0x11;  // Jetson -> ESP32
-    constexpr uint8_t HEARTBEAT  = 0x12;  // Jetson -> ESP32
-    constexpr uint8_t TELEMETRY  = 0x20;  // ESP32 -> Jetson
-    constexpr uint8_t ESP_HELLO  = 0x21;  // ESP32 -> Jetson
+    constexpr uint8_t MOTOR_CMD     = 0x10;  // Jetson -> ESP32: int16 L, int16 R, int16 aux
+    constexpr uint8_t BRAKE_ON      = 0x11;  // Jetson -> ESP32
+    constexpr uint8_t HEARTBEAT     = 0x12;  // Jetson -> ESP32
+    constexpr uint8_t PID_PARAM     = 0x13;  // Jetson -> ESP32: ctrl_id(1) param_id(1) float32(4)
+    constexpr uint8_t SETPOINT_COMP = 0x14;  // Jetson -> ESP32: comp_id(1) reserved(1) float32(4)
+    constexpr uint8_t MODE_CMD      = 0x15;  // Jetson -> ESP32: mode(1) — 0=manual, 1=autonomous
+    constexpr uint8_t TELEMETRY     = 0x20;  // ESP32 -> Jetson
+    constexpr uint8_t ESP_HELLO     = 0x21;  // ESP32 -> Jetson
 }
 
 }  // namespace Cfg

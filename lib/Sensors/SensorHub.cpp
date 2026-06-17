@@ -39,20 +39,33 @@ void SensorHub::feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking)
     last_.braking         = braking;
 }
 
-size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state) {
-    // Documento JSON en stack. Tamaño generoso para los ~12 campos actuales;
-    // ajustar si crece.
-    StaticJsonDocument<512> doc;
+size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, bool autonomousMode, const ControlTelemetry& ctrl) {
+    StaticJsonDocument<768> doc;
 
-    doc["t"]     = last_.uptime_ms;
+    
+    doc["mode"] = autonomousMode ? "auto" : "manual";
+    JsonObject u = doc.createNestedObject("u");
+        u["pwm_left"] = last_.motor_pwm_left;
+        u["pwm_right"] = last_.motor_pwm_right;
 
-    // Inyección del estado estimado por la clase Odometry
     JsonObject odo = doc.createNestedObject("odo");
-    odo["x"]       = state.x;      // Posición X en metros
-    odo["y"]       = state.y;      // Posición Y en metros
-    odo["th"]      = state.theta;  // Orientación en grados
-    odo["v"]       = state.v;      // Velocidad lineal en m/s
-    odo["om"]      = state.omega;  // Velocidad angular en grados/s
+    odo["x"]  = state.x;
+    odo["y"]  = state.y;
+    odo["a"] = state.theta;
+    odo["v"]  = state.v;
+    odo["w"] = state.omega;
+
+    JsonObject sp = doc.createNestedObject("sp");
+    sp["x"] = ctrl.sp_x;
+    sp["y"] = ctrl.sp_y;
+    sp["a"] = ctrl.sp_ang;
+    sp["v"] = ctrl.sp_v;
+    sp["w"] = ctrl.sp_w;
+    
+    JsonObject err = doc.createNestedObject("error");
+    err["pos"] = sqrt((ctrl.sp_x - state.x) * (ctrl.sp_x - state.x) + (ctrl.sp_y - state.y) * (ctrl.sp_y - state.y));
+    err["ang"] = atan2(ctrl.sp_y - state.y, ctrl.sp_x - state.x) * RAD_TO_DEG
+                                        - state.theta;
 
     JsonObject tof = doc.createNestedObject("tof");
     tof["t1"]  = last_.tof_sensor1_mm;
