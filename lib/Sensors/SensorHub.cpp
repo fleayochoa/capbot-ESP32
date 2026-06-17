@@ -1,7 +1,6 @@
 #include "SensorHub.h"
 #include "Odometry.h"
-
-#include <ArduinoJson.h>
+#include <string.h>
 
 SensorHub::SensorHub(Capbot::encoderPins encPins, pcnt_unit_t encUnitLeft,
     pcnt_unit_t encUnitRight, uint8_t tofXshut1, uint8_t tofXshut2,
@@ -39,39 +38,41 @@ void SensorHub::feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking)
     last_.braking         = braking;
 }
 
-size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, bool autonomousMode, const ControlTelemetry& ctrl) {
-    StaticJsonDocument<768> doc;
+size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state,
+                               bool autonomousMode, const ControlTelemetry& ctrl) {
+    // Telemetría binaria, little-endian, TAMAÑO FIJO.
+    // El layout DEBE mantenerse en sync con el decoder de la Jetson (_TELEM_FMT).
+    //   u8  schema(=1)
+    //   u8  mode (0=manual, 1=auto)
+    //   i16 pwm_left, pwm_right
+    //   f32 odo:   x, y, a, v, w
+    //   f32 sp:    x, y, a, v, w
+    //   f32 error: pos, ang
+    //   u16 tof:   t1, t2
+    static constexpr size_t PACKET_SIZE = 58;
+    static_assert(PACKET_SIZE <= Cfg::MAX_FRAME_PAYLOAD,
+                  "telemetry packet exceeds frame payload");
+    if (out_cap < PACKET_SIZE) return 0;
 
-    
-    doc["mode"] = autonomousMode ? "auto" : "manual";
-    JsonObject u = doc.createNestedObject("u");
-        u["pwm_left"] = last_.motor_pwm_left;
-        u["pwm_right"] = last_.motor_pwm_right;
+    const float dx = ctrl.sp_x - state.x;
+    const float dy = ctrl.sp_y - state.y;
+    const float err_pos = sqrtf(dx * dx + dy * dy);
+    const float err_ang = atan2f(dy, dx) * RAD_TO_DEG - state.theta;
 
-    JsonObject odo = doc.createNestedObject("odo");
-    odo["x"]  = state.x;
-    odo["y"]  = state.y;
-    odo["a"] = state.theta;
-    odo["v"]  = state.v;
-    odo["w"] = state.omega;
+    size_t o = 0;
+    auto put_u8  = [&](uint8_t  v){ out[o] = v; o += 1; };
+    auto put_i16 = [&](int16_t  v){ memcpy(out + o, &v, 2); o += 2; };
+    auto put_u16 = [&](uint16_t v){ memcpy(out + o, &v, 2); o += 2; };
+    auto put_f32 = [&](float    v){ memcpy(out + o, &v, 4); o += 4; };
 
-    JsonObject sp = doc.createNestedObject("sp");
-    sp["x"] = ctrl.sp_x;
-    sp["y"] = ctrl.sp_y;
-    sp["a"] = ctrl.sp_ang;
-    sp["v"] = ctrl.sp_v;
-    sp["w"] = ctrl.sp_w;
-    
-    JsonObject err = doc.createNestedObject("error");
-    err["pos"] = sqrt((ctrl.sp_x - state.x) * (ctrl.sp_x - state.x) + (ctrl.sp_y - state.y) * (ctrl.sp_y - state.y));
-    err["ang"] = atan2(ctrl.sp_y - state.y, ctrl.sp_x - state.x) * RAD_TO_DEG
-                                        - state.theta;
+    put_u8(1);                          // schema
+    put_u8(autonomousMode ? 1 : 0);     // mode
+    put_i16(last_.motor_pwm_left);
+    put_i16(last_.motor_pwm_right);
+    put_f32(state.x); put_f32(state.y); put_f32(state.theta); put_f32(state.v); put_f32(state.omega);
+    put_f32(ctrl.sp_x); put_f32(ctrl.sp_y); put_f32(ctrl.sp_ang); put_f32(ctrl.sp_v); put_f32(ctrl.sp_w);
+    put_f32(err_pos); put_f32(err_ang);
+    put_u16(last_.tof_sensor1_mm); put_u16(last_.tof_sensor2_mm);
 
-    JsonObject tof = doc.createNestedObject("tof");
-    tof["t1"]  = last_.tof_sensor1_mm;
-    tof["t2"]  = last_.tof_sensor2_mm;
-
-    const size_t n = serializeJson(doc, out, out_cap);
-    if (n == 0 || n >= out_cap) return 0;
-    return n;
+    return o;  // siempre 58
 }
