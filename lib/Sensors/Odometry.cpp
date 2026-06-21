@@ -14,6 +14,18 @@ void Odometry::begin() {
 void Odometry::reset() {
     state_ = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     lastUpdateMs_ = 0;
+    filterIdx_ = 0;
+    filterFull_ = false;
+    for (uint8_t i = 0; i < FILTER_WIN; ++i) {
+        thetaBuf_[i] = 0.0f;
+        omegaBuf_[i] = 0.0f;
+    }
+}
+
+static float windowAvg(const float* buf, uint8_t len) {
+    float sum = 0.0f;
+    for (uint8_t i = 0; i < len; ++i) sum += buf[i];
+    return sum / len;
 }
 
 StateEstimate Odometry::update(const SensorHub::Telemetry& telemetry, bool useInternalFusion) {
@@ -38,15 +50,16 @@ StateEstimate Odometry::update(const SensorHub::Telemetry& telemetry, bool useIn
     state_.v = 0.5f * (velLeft + velRight);
     
     // Uso del giroscopio crudo (eje Z) para la velocidad angular (grados/s)
-    for (int i = 4; i > 0; i--) {
-        lastOmegas[i] = lastOmegas[i - 1];
-    }
-    lastOmegas[0] = telemetry.imu_gyro.z;
-    state_.omega = 0.2f * (lastOmegas[0] + lastOmegas[1] + lastOmegas[2] + lastOmegas[3] + lastOmegas[4]);
+    state_.omega = telemetry.imu_gyro.z;
 
     // Uso de la fusión interna (grados)
     if (useInternalFusion) {
-        state_.theta = telemetry.imu_euler.heading;
+        float theta = telemetry.imu_euler.heading;
+        float theta_rad = theta * DEG_TO_RAD;
+
+        float error_rad = atan2(sin(theta_rad), cos(theta_rad));
+
+        state_.theta = error_rad * RAD_TO_DEG;
     }
     // Filtro complementario
     else {
@@ -65,6 +78,15 @@ StateEstimate Odometry::update(const SensorHub::Telemetry& telemetry, bool useIn
         }
         state_.theta = alpha * theta_gyro + (1 - alpha) * theta_mag;
     }
+    // Sliding-window filter for theta and omega
+    thetaBuf_[filterIdx_] = state_.theta;
+    omegaBuf_[filterIdx_] = state_.omega;
+    filterIdx_ = (filterIdx_ + 1) % FILTER_WIN;
+    if (!filterFull_ && filterIdx_ == 0) filterFull_ = true;
+    uint8_t n = filterFull_ ? FILTER_WIN : filterIdx_;
+    state_.theta = windowAvg(thetaBuf_, n);
+    state_.omega = windowAvg(omegaBuf_, n);
+
     // Integración de la posición (metros)
     float thetaRad = state_.theta * DEG_TO_RAD;
     state_.x += state_.v * cos(thetaRad) * dt;

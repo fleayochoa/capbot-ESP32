@@ -1,6 +1,7 @@
 #include "JetsonLink.h"
 
 #include <string.h>
+#include <stdint.h>
 
 void JetsonLink::begin(uint32_t baud) {
     // Buffers mayores al default (64 bytes) para absorber ráfagas.
@@ -53,6 +54,25 @@ void JetsonLink::dispatchFrame() {
         case Cfg::MsgType::HEARTBEAT:
             if (cbHb_) cbHb_(ctxHb_);
             break;
+        case Cfg::MsgType::PID_PARAM: {
+            if (n < 6) return;
+            float value;
+            memcpy(&value, &p[2], sizeof(float));
+            if (cbPidParam_) cbPidParam_(p[0], p[1], value, ctxPidParam_);
+            break;
+        }
+        case Cfg::MsgType::SETPOINT_COMP: {
+            if (n < 6) return;
+            float value;
+            memcpy(&value, &p[2], sizeof(float));
+            if (cbSetpoint_) cbSetpoint_(p[0], value, ctxSetpoint_);
+            break;
+        }
+        case Cfg::MsgType::MODE_CMD: {
+            if (n < 1) return;
+            if (cbMode_) cbMode_(p[0], ctxMode_);
+            break;
+        }
         default:
             // Tipos desconocidos se ignoran. No corrompen el stream porque el
             // framing COBS+CRC ya validó el frame.
