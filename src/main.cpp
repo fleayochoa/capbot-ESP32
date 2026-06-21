@@ -9,7 +9,7 @@
 //
 // loop():
 //   1. JetsonLink.tick()  -> procesa RX y dispara callbacks
-//   2. Watchdog: si !hb y lastRx > JETSON_WATCHDOG_MS -> brake()
+//   2. Watchdog: si !hb y lastRx > JETSON_WATCHDOG_MS -> brake() y sale de autónomo
 //   3. Cada TELEMETRY_PERIOD_MS: sample + odometría + control + sendTelemetry
 //   4. Pequeño yield para no hambrear tareas RTOS de fondo
 
@@ -40,8 +40,8 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 static const Controlador::Config DEFAULT_CTRL_CFG = {
     { 4.0f,     3.0f, 0.1f, -0.5f,    0.5f,    0.5f    },  // linearPosPid
     { 50000.0f, 0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // linearVelPid
-    { 20.0f,     0.0f, 0.1f, -30.0f,   30.0f,  20.0f   },  // angularPosPid
-    { 150.0f,   0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // angularVelPid
+    { 40.0f,     0.1f, 0.5f, -60.0f,   60.0f,  20.0f   },  // angularPosPid
+    { 200.0f,   0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // angularVelPid
     0.1f, 10.0f, 32767.0f    // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
 };
 
@@ -81,6 +81,10 @@ static void onMotorCmd(int16_t left, int16_t right, int16_t aux, void* /*ctx*/) 
 }
 
 static void onBrake(void* /*ctx*/) {
+    // Sale de modo autónomo: si no, ControlTaskCode vuelve a mandar drive()
+    // en el siguiente ciclo (max 20ms) y pisa este freno.
+    g_autonomousMode = false;
+    g_controller.reset();
     g_motors.brake();
 }
 
@@ -136,6 +140,10 @@ static void runWatchdog() {
     const uint32_t since = millis() - last;
     if (since > Cfg::JETSON_WATCHDOG_MS) {
         if (!g_watchdogTriggered) {
+            // Igual que onBrake(): sin esto, ControlTaskCode sigue corriendo
+            // en autónomo con setpoints viejos y pisa el freno en <20ms.
+            g_autonomousMode = false;
+            g_controller.reset();
             g_motors.brake();
             g_watchdogTriggered = true;
         }
