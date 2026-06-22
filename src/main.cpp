@@ -1,5 +1,21 @@
 // main.cpp — Entry point del firmware.
 //
+// Modos (ver Cfg::MsgType::MODE_CMD):
+//   0 MANUAL              : MOTOR_CMD de teleop (PWM crudo) maneja los motores
+//                           directo.
+//   1 AUTONOMOUS_NAV      : VEL_CMD lleva el setpoint de velocidad de nav2
+//                           (vía jetson-bridge): float32 linear m/s, float32
+//                           angular rad/s. El PID de velocidad on-board
+//                           (Controlador::computeVelocity, mismas ganancias
+//                           que el lazo interno de WAYPOINT) cierra el lazo
+//                           con la odometría y maneja los motores. Es el modo
+//                           autónomo por defecto. MOTOR_CMD se ignora en este
+//                           modo.
+//   2 AUTONOMOUS_WAYPOINT : Cascada PID on-board (Control.cpp) maneja los
+//                           motores a partir de setpoints SETPOINT_COMP;
+//                           MOTOR_CMD y VEL_CMD se ignoran para no pelear con
+//                           la cascada.
+//
 // setup():
 //   1. Inicializa Serial con la Jetson
 //   2. Inicializa motores (arrancan en freno por seguridad)
@@ -9,7 +25,7 @@
 //
 // loop():
 //   1. JetsonLink.tick()  -> procesa RX y dispara callbacks
-//   2. Watchdog: si !hb y lastRx > JETSON_WATCHDOG_MS -> brake() y sale de autónomo
+//   2. Watchdog: si !hb y lastRx > JETSON_WATCHDOG_MS -> brake() y sale a manual
 //   3. Cada TELEMETRY_PERIOD_MS: sample + odometría + control + sendTelemetry
 //   4. Pequeño yield para no hambrear tareas RTOS de fondo
 
@@ -61,9 +77,22 @@ static struct {
     float w      = 0.0f;
 } g_setpoint;
 
-static bool     g_autonomousMode    = false;
-static uint32_t g_lastTelemetryMs   = 0;
-static bool     g_watchdogTriggered = false;
+// Setpoint de velocidad de nav2 recibido vía VEL_CMD en AUTONOMOUS_NAV.
+static struct {
+    float    linVel = 0.0f;  // m/s
+    float    angVel = 0.0f;  // grados/s
+    uint32_t lastMs = 0;     // millis() del último VEL_CMD recibido en este modo
+} g_navVel;
+
+enum class RobotMode : uint8_t {
+    MANUAL              = 0,  // Teleop: MOTOR_CMD (PWM crudo) maneja directo
+    AUTONOMOUS_NAV      = 1,  // PID de velocidad on-board sobre setpoint de nav2 (VEL_CMD)
+    AUTONOMOUS_WAYPOINT = 2,  // Cascada PID on-board con setpoints SETPOINT_COMP
+};
+
+static RobotMode g_mode             = RobotMode::MANUAL;
+static uint32_t  g_lastTelemetryMs  = 0;
+static bool      g_watchdogTriggered = false;
 
 
 // Doble nucleo
@@ -74,16 +103,38 @@ TaskHandle_t TelemetryTaskHandle;
 // ==============================================================
 static void onMotorCmd(int16_t left, int16_t right, int16_t aux, void* /*ctx*/) {
     (void)aux;
-    if (!g_autonomousMode) {
+    if (g_mode == RobotMode::MANUAL) {
+        // Teleop: left/right son PWM crudo, manejan los motores directo.
         g_motors.drive(left, right);
     }
+    // En AUTONOMOUS_NAV / AUTONOMOUS_WAYPOINT se ignora: el setpoint de
+    // velocidad de nav2 llega por VEL_CMD (onVelCmd) y la cascada/PID
+    // on-board es la única autoridad sobre los motores.
+    g_watchdogTriggered = false;
+}
+
+static void onVelCmd(float linear, float angular, void* /*ctx*/) {
+    if (g_mode == RobotMode::AUTONOMOUS_NAV) {
+        // linear: m/s, angular: rad/s (Twist de nav2 /cmd_vel vía
+        // jetson-bridge). Convertimos angular a grados/s para que coincida
+        // con el eje angular usado en el resto del firmware (odometría,
+        // PID). Sólo guardamos el setpoint; runVelocityControl() en
+        // ControlTaskCode corre el PID a dt fijo (20ms) contra la odometría.
+        g_navVel.linVel = linear;
+        g_navVel.angVel = angular * RAD_TO_DEG;
+        g_navVel.lastMs = millis();
+    }
+    // Fuera de AUTONOMOUS_NAV se ignora: el teleop crudo (MANUAL) o la
+    // cascada PID on-board (WAYPOINT) son la única autoridad sobre los
+    // motores en esos modos.
     g_watchdogTriggered = false;
 }
 
 static void onBrake(void* /*ctx*/) {
-    // Sale de modo autónomo: si no, ControlTaskCode vuelve a mandar drive()
-    // en el siguiente ciclo (max 20ms) y pisa este freno.
-    g_autonomousMode = false;
+    // Vuelve a MANUAL: si no, ControlTaskCode (en AUTONOMOUS_WAYPOINT) o un
+    // MOTOR_CMD viejo en cola seguirían manejando los motores y pisarían
+    // este freno en el siguiente ciclo.
+    g_mode = RobotMode::MANUAL;
     g_controller.reset();
     g_motors.brake();
 }
@@ -121,10 +172,23 @@ static void onSetpointComp(uint8_t comp_id, float value, void* /*ctx*/) {
 }
 
 static void onModeCmd(uint8_t mode, void* /*ctx*/) {
-    g_autonomousMode = (mode != 0);
-    if (!g_autonomousMode) {
-        g_controller.reset();
+    switch (mode) {
+        case 1:  g_mode = RobotMode::AUTONOMOUS_NAV;      break;
+        case 2:  g_mode = RobotMode::AUTONOMOUS_WAYPOINT; break;
+        default: g_mode = RobotMode::MANUAL;              break;
+    }
+    // Limpia integradores de la cascada ante cualquier cambio de modo para
+    // que no arrastre estado viejo si se vuelve a entrar a WAYPOINT o NAV.
+    g_controller.reset();
+    if (g_mode == RobotMode::MANUAL) {
         g_motors.brake();
+    } else if (g_mode == RobotMode::AUTONOMOUS_NAV) {
+        // Sin esto, un MOTOR_CMD viejo de una sesión NAV anterior se vería
+        // como "setpoint fresco" y el robot arrancaría a moverse solo al
+        // entrar al modo, antes de que nav2 mande nada nuevo.
+        g_navVel.linVel = 0.0f;
+        g_navVel.angVel = 0.0f;
+        g_navVel.lastMs = 0;
     }
 }
 
@@ -141,8 +205,8 @@ static void runWatchdog() {
     if (since > Cfg::JETSON_WATCHDOG_MS) {
         if (!g_watchdogTriggered) {
             // Igual que onBrake(): sin esto, ControlTaskCode sigue corriendo
-            // en autónomo con setpoints viejos y pisa el freno en <20ms.
-            g_autonomousMode = false;
+            // en AUTONOMOUS_WAYPOINT con setpoints viejos y pisa el freno en <20ms.
+            g_mode = RobotMode::MANUAL;
             g_controller.reset();
             g_motors.brake();
             g_watchdogTriggered = true;
@@ -175,6 +239,33 @@ static void runControl(float dt) {
     }
 }
 
+static void runVelocityControl(float dt) {
+    if (millis() - g_navVel.lastMs > Cfg::NAV_VEL_TIMEOUT_MS) {
+        // nav2 dejó de mandar /cmd_vel (VEL_CMD): frenamos pero nos
+        // quedamos en AUTONOMOUS_NAV a la espera de un setpoint fresco.
+        if (!g_motors.isBraking()) g_motors.brake();
+        return;
+    }
+
+    const StateEstimate& odo = g_odometry.state();
+
+    Controlador::State st;
+    st.xPosition       = odo.x;
+    st.yPosition       = odo.y;
+    st.linearVelocity  = odo.v;
+    st.angularPosition = odo.theta;
+    st.angularVelocity = odo.omega;
+
+    Controlador::VelSetpoint sp;
+    sp.linearVelocity  = g_navVel.linVel;
+    sp.angularVelocity = g_navVel.angVel;
+
+    const Controlador::MotorCommand cmd = g_controller.computeVelocity(sp, st, dt);
+    g_setpoint.v = cmd.targetLinVel;
+    g_setpoint.w = cmd.targetAngVel;
+    g_motors.drive(static_cast<int16_t>(cmd.left), static_cast<int16_t>(cmd.right));
+}
+
 static void runTelemetry() {
     const uint32_t now = millis();
     if (now - g_lastTelemetryMs < Cfg::TELEMETRY_PERIOD_MS) return;
@@ -191,8 +282,15 @@ static void runTelemetry() {
     ctrl.sp_v = g_setpoint.v;
     ctrl.sp_w = g_setpoint.w;
 
+    const char* modeStr = "manual";
+    switch (g_mode) {
+        case RobotMode::AUTONOMOUS_NAV:      modeStr = "nav2";     break;
+        case RobotMode::AUTONOMOUS_WAYPOINT: modeStr = "waypoint"; break;
+        default: break;
+    }
+
     uint8_t payload[Cfg::MAX_FRAME_PAYLOAD];
-    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), state, g_autonomousMode, ctrl);
+    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), state, modeStr, ctrl);
     if (n > 0) {
         g_link.sendTelemetry(payload, n);
     }
@@ -234,6 +332,7 @@ void setup() {
     g_link.onPidParam  (&onPidParam,     nullptr);
     g_link.onSetpoint  (&onSetpointComp, nullptr);
     g_link.onModeCmd   (&onModeCmd,      nullptr);
+    g_link.onVelCmd    (&onVelCmd,       nullptr);
 
     g_link.sendHello();
 
@@ -265,8 +364,10 @@ void ControlTaskCode( void * pvParameters ){
   const TickType_t periodo      = pdMS_TO_TICKS(20); // Control se ejecuta cada 20ms
   TickType_t       lastWakeTime = xTaskGetTickCount();
   for(;;){
-    if (g_autonomousMode) {
+    if (g_mode == RobotMode::AUTONOMOUS_WAYPOINT) {
         runControl(0.02f);
+    } else if (g_mode == RobotMode::AUTONOMOUS_NAV) {
+        runVelocityControl(0.02f);
     }
     vTaskDelayUntil(&lastWakeTime, periodo);
   }

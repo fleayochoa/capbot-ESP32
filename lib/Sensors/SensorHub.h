@@ -60,8 +60,8 @@ public:
     };
 
     // Serializa la telemetría a JSON en el buffer dado. Devuelve bytes
-    // escritos (sin NUL final) o 0 en error.
-    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, bool autonomousMode, const ControlTelemetry& ctrl);
+    // escritos (sin NUL final) o 0 en error. mode: "manual" | "nav2" | "waypoint".
+    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, const char* mode, const ControlTelemetry& ctrl);
 
     const Telemetry& last() const { return last_; }
 

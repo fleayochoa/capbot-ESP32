@@ -73,6 +73,14 @@ void JetsonLink::dispatchFrame() {
             if (cbMode_) cbMode_(p[0], ctxMode_);
             break;
         }
+        case Cfg::MsgType::VEL_CMD: {
+            if (n < 8) return;  // esperamos 2 float32
+            float linear, angular;
+            memcpy(&linear, &p[0], sizeof(float));
+            memcpy(&angular, &p[4], sizeof(float));
+            if (cbVelCmd_) cbVelCmd_(linear, angular, ctxVelCmd_);
+            break;
+        }
         default:
             // Tipos desconocidos se ignoran. No corrompen el stream porque el
             // framing COBS+CRC ya validó el frame.

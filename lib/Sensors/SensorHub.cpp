@@ -39,10 +39,10 @@ void SensorHub::feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking)
     last_.braking         = braking;
 }
 
-size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, bool autonomousMode, const ControlTelemetry& ctrl) {
+size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, const char* mode, const ControlTelemetry& ctrl) {
     StaticJsonDocument<768> doc;
 
-    doc["mode"] = autonomousMode ? "auto" : "manual";
+    doc["mode"] = mode;
     JsonObject u = doc.createNestedObject("u");
         u["pwm_left"] = last_.motor_pwm_left;
         u["pwm_right"] = last_.motor_pwm_right;

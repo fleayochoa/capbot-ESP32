@@ -22,6 +22,7 @@ public:
     using PidParamCallback  = void (*)(uint8_t ctrl_id, uint8_t param_id, float value, void* ctx);
     using SetpointCallback  = void (*)(uint8_t comp_id, float value, void* ctx);
     using ModeCallback      = void (*)(uint8_t mode, void* ctx);
+    using VelCmdCallback    = void (*)(float linear, float angular, void* ctx);
 
     JetsonLink() = default;
 
@@ -39,6 +40,7 @@ public:
     void onPidParam (PidParamCallback cb, void* ctx) { cbPidParam_ = cb; ctxPidParam_ = ctx; }
     void onSetpoint (SetpointCallback cb, void* ctx) { cbSetpoint_ = cb; ctxSetpoint_ = ctx; }
     void onModeCmd  (ModeCallback     cb, void* ctx) { cbMode_     = cb; ctxMode_     = ctx; }
+    void onVelCmd   (VelCmdCallback   cb, void* ctx) { cbVelCmd_   = cb; ctxVelCmd_   = ctx; }
 
     // ---- Envío ----
     // Manda TELEMETRY con el payload dado. Devuelve true si se envió.
@@ -67,6 +69,7 @@ private:
     PidParamCallback cbPidParam_ = nullptr; void* ctxPidParam_ = nullptr;
     SetpointCallback cbSetpoint_ = nullptr; void* ctxSetpoint_ = nullptr;
     ModeCallback     cbMode_    = nullptr;  void* ctxMode_     = nullptr;
+    VelCmdCallback   cbVelCmd_  = nullptr;  void* ctxVelCmd_   = nullptr;
 
     uint32_t lastRxMs_ = 0;
     uint32_t framesRx_ = 0;
