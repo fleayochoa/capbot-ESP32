@@ -3,11 +3,13 @@
 // Modos (ver Cfg::MsgType::MODE_CMD):
 //   0 MANUAL              : MOTOR_CMD de teleop (PWM crudo) maneja los motores
 //                           directo.
-//   1 AUTONOMOUS_NAV      : VEL_CMD lleva el setpoint de velocidad de nav2
-//                           (vía jetson-bridge): float32 linear m/s, float32
-//                           angular rad/s. El PID de velocidad on-board
+//   1 AUTONOMOUS_NAV      : VEL_CMD lleva el setpoint de nav2 (vía
+//                           jetson-bridge): float32 linear m/s, float32
+//                           angular rad (heading absoluto). El eje lineal
+//                           corre el PID de velocidad directo; el eje angular
+//                           corre la cascada posición->velocidad
 //                           (Controlador::computeVelocity, mismas ganancias
-//                           que el lazo interno de WAYPOINT) cierra el lazo
+//                           que el lazo interno de WAYPOINT) cerrando el lazo
 //                           con la odometría y maneja los motores. Es el modo
 //                           autónomo por defecto. MOTOR_CMD se ignora en este
 //                           modo.
@@ -54,11 +56,11 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 //   angularPosPid : grados -> setpoint deg/s
 //   angularVelPid : deg/s  -> esfuerzo diferencial [-32767, 32767]
 static const Controlador::Config DEFAULT_CTRL_CFG = {
-    { 4.0f,     3.0f, 0.1f, -0.5f,    0.5f,    0.5f    },  // linearPosPid
-    { 50000.0f, 0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // linearVelPid
-    { 40.0f,     0.1f, 0.5f, -60.0f,   60.0f,  20.0f   },  // angularPosPid
-    { 200.0f,   0.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // angularVelPid
-    0.1f, 10.0f, 32767.0f    // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
+    { 1.0f, 0.0f, 0.0f, -0.5f,    0.5f,    0.5f    },  // linearPosPid
+    { 4.0f, 0.1f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // linearVelPid
+    { 3.0f, 0.0f, 0.0f, -60.0f,   60.0f,  20.0f   },  // angularPosPid
+    { 10.0f,   0.0f, 0.1f, -32767.0f , 32767.0f , 50000.0f },  // angularVelPid
+    0.1f, 3.0f, 32767.0f    // thetaPositionTolerance, thetaAngleTolerance, maxMotorOutput
 };
 
 // ---- Instancias globales ----
@@ -77,10 +79,10 @@ static struct {
     float w      = 0.0f;
 } g_setpoint;
 
-// Setpoint de velocidad de nav2 recibido vía VEL_CMD en AUTONOMOUS_NAV.
+// Setpoint de nav2 recibido vía VEL_CMD en AUTONOMOUS_NAV.
 static struct {
     float    linVel = 0.0f;  // m/s
-    float    angVel = 0.0f;  // grados/s
+    float    angPos = 0.0f;  // grados, heading absoluto (mismo eje que odometría theta)
     uint32_t lastMs = 0;     // millis() del último VEL_CMD recibido en este modo
 } g_navVel;
 
@@ -115,13 +117,13 @@ static void onMotorCmd(int16_t left, int16_t right, int16_t aux, void* /*ctx*/) 
 
 static void onVelCmd(float linear, float angular, void* /*ctx*/) {
     if (g_mode == RobotMode::AUTONOMOUS_NAV) {
-        // linear: m/s, angular: rad/s (Twist de nav2 /cmd_vel vía
-        // jetson-bridge). Convertimos angular a grados/s para que coincida
+        // linear: m/s. angular: rad, heading absoluto (no velocidad angular)
+        // vía jetson-bridge. Convertimos angular a grados para que coincida
         // con el eje angular usado en el resto del firmware (odometría,
         // PID). Sólo guardamos el setpoint; runVelocityControl() en
-        // ControlTaskCode corre el PID a dt fijo (20ms) contra la odometría.
+        // ControlTaskCode corre la cascada a dt fijo (20ms) contra la odometría.
         g_navVel.linVel = linear;
-        g_navVel.angVel = angular * RAD_TO_DEG;
+        g_navVel.angPos = angular * RAD_TO_DEG;
         g_navVel.lastMs = millis();
     }
     // Fuera de AUTONOMOUS_NAV se ignora: el teleop crudo (MANUAL) o la
@@ -187,7 +189,7 @@ static void onModeCmd(uint8_t mode, void* /*ctx*/) {
         // como "setpoint fresco" y el robot arrancaría a moverse solo al
         // entrar al modo, antes de que nav2 mande nada nuevo.
         g_navVel.linVel = 0.0f;
-        g_navVel.angVel = 0.0f;
+        g_navVel.angPos = 0.0f;
         g_navVel.lastMs = 0;
     }
 }
@@ -258,7 +260,7 @@ static void runVelocityControl(float dt) {
 
     Controlador::VelSetpoint sp;
     sp.linearVelocity  = g_navVel.linVel;
-    sp.angularVelocity = g_navVel.angVel;
+    sp.angularPosition = g_navVel.angPos;
 
     const Controlador::MotorCommand cmd = g_controller.computeVelocity(sp, st, dt);
     g_setpoint.v = cmd.targetLinVel;

@@ -53,10 +53,12 @@ namespace MsgType {
     constexpr uint8_t PID_PARAM     = 0x13;  // Jetson -> ESP32: ctrl_id(1) param_id(1) float32(4)
     constexpr uint8_t SETPOINT_COMP = 0x14;  // Jetson -> ESP32: comp_id(1) reserved(1) float32(4)
     constexpr uint8_t MODE_CMD      = 0x15;  // Jetson -> ESP32: mode(1) — 0=manual, 1=autonomous nav (PID de velocidad sobre VEL_CMD), 2=autonomous waypoint (cascada PID on-board)
-    // VEL_CMD: Jetson -> ESP32: float32 linear (m/s), float32 angular (rad/s).
-    //   Setpoint de velocidad de nav2 /cmd_vel (vía jetson-bridge) para el PID
-    //   de velocidad on-board en modo AUTONOMOUS_NAV. Reemplaza la codificación
-    //   anterior sobre MOTOR_CMD; el camino de teleop crudo queda separado.
+    // VEL_CMD: Jetson -> ESP32: float32 linear (m/s), float32 angular (rad, heading absoluto).
+    //   Setpoint de nav2 /cmd_vel (vía jetson-bridge) para el control on-board
+    //   en modo AUTONOMOUS_NAV: PID de velocidad directo sobre el eje lineal,
+    //   cascada posición->velocidad sobre el eje angular. Reemplaza la
+    //   codificación anterior sobre MOTOR_CMD; el camino de teleop crudo
+    //   queda separado.
     constexpr uint8_t VEL_CMD       = 0x16;
     constexpr uint8_t TELEMETRY     = 0x20;  // ESP32 -> Jetson
     constexpr uint8_t ESP_HELLO     = 0x21;  // ESP32 -> Jetson

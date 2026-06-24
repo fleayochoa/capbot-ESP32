@@ -14,7 +14,11 @@
 namespace Pins {
 
 // --- Motor izquierdo ---
-constexpr uint8_t LEFT_IN1 = 12;
+// LEFT_IN1 está en GPIO4, no GPIO12: GPIO12 es un pin de strapping (MTDI,
+// selecciona voltaje de flash al boot). El shield lo mantenía en HIGH
+// durante el boot, lo que hacía que el ESP32 seleccionara flash a 1.8V en
+// lugar de 3.3V y no llegara a correr el firmware (sin ESP_HELLO, sin nada).
+constexpr uint8_t LEFT_IN1 = 4;
 constexpr uint8_t LEFT_IN2 = 15;
 constexpr uint8_t LEFT_ENA = 18;   // PWM
 

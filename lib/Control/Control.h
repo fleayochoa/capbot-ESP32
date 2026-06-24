@@ -50,7 +50,7 @@ public:
     // Objetivo de control en modo velocidad directa (nav2 /cmd_vel)
     struct VelSetpoint {
         float linearVelocity;   // m/s
-        float angularVelocity;  // grados/s (mismo eje que State.angularVelocity)
+        float angularPosition;  // grados, heading absoluto (mismo eje que State.angularPosition)
     };
 
     // Salida final mapeada para los drivers de los motores
@@ -73,9 +73,12 @@ public:
     // Ejecuta el cálculo completo de la cascada y la mezcla diferencial
     MotorCommand compute(const Setpoint& setpoint, const State& state, float dt);
 
-    // Control de velocidad directo para nav2 /cmd_vel: bypasea los lazos de
-    // posición y corre sólo los PID de velocidad (mismas ganancias/instancias
-    // que usa la cascada en modo waypoint) sobre el setpoint recibido.
+    // Control para nav2 /cmd_vel: el eje lineal bypasea el lazo de posición y
+    // corre directo el PID de velocidad lineal sobre el setpoint recibido. El
+    // eje angular sí usa la cascada (igual que en modo waypoint), ya que el
+    // setpoint angular que manda nav2 es un heading absoluto, no una
+    // velocidad angular: PID de orientación -> referencia de vel. angular ->
+    // PID de vel. angular.
     MotorCommand computeVelocity(const VelSetpoint& setpoint, const State& state, float dt);
 
     const Config& config() const { return config_; }
