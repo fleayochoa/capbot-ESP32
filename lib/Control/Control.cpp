@@ -117,34 +117,18 @@ Controlador::MotorCommand Controlador::compute(
 Controlador::MotorCommand Controlador::computeVelocity(
     const VelSetpoint& setpoint, const State& state, float dt) {
 
-    MotorCommand cmd = {0.0f, 0.0f, false, setpoint.linearVelocity, 0.0f};
+    MotorCommand cmd = {0.0f, 0.0f, false, setpoint.linearVelocity, setpoint.angularVelocity};
 
     if (dt <= 0.0f) {
         return cmd;
     }
 
-    // ---- Lineal: sin lazo de posición, el setpoint de velocidad viene directo de nav2. ----
-    const float linearVelError = setpoint.linearVelocity - state.linearVelocity;
-    const float linearEffort   = linearVelPid_.compute(linearVelError, dt);
+    // Sin lazo de posición: el setpoint de velocidad viene directo de nav2.
+    const float linearVelError  = setpoint.linearVelocity  - state.linearVelocity;
+    const float angularVelError = setpoint.angularVelocity - state.angularVelocity;
 
-    // ---- Angular en Cascada: nav2 manda un heading absoluto, no una velocidad. ----
-    float angularPosError = setpoint.angularPosition - state.angularPosition * DEG_TO_RAD;
-    angularPosError = atan2(sin(angularPosError),cos(angularPosError)) * RAD_TO_DEG;
-    float targetAngularVel = 0.0f;
-    float angularEffort    = 0.0f;
-
-    if (absFloat(angularPosError) < config_.thetaAngleTolerance) {
-        // Dentro de la tolerancia angular: no corregimos para evitar oscilaciones finas.
-        angularPosPid_.reset();
-        angularVelPid_.reset();
-    } else {
-        // 1. El PID de orientación absoluta calcula la velocidad angular requerida
-        targetAngularVel = angularPosPid_.compute(angularPosError, dt);
-        const float angularVelError = targetAngularVel - state.angularVelocity;
-        // 2. El PID de velocidad angular genera el esfuerzo de giro diferencial
-        angularEffort = angularVelPid_.compute(angularVelError, dt);
-    }
-    cmd.targetAngVel = targetAngularVel;
+    const float linearEffort  = linearVelPid_.compute(linearVelError, dt);
+    const float angularEffort = angularVelPid_.compute(angularVelError, dt);
 
     // ---- Mezclador (Cinemática Inversa Diferencial) ----
     const float leftOut  = linearEffort - angularEffort;

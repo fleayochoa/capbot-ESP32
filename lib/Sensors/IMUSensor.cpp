@@ -2,36 +2,24 @@
 
 #include <math.h>
 
-// Factor de conversión rad/s -> deg/s (Adafruit expone gyro en rps).
+// Factor de conversión rad/s -> deg/s (Adafruit expone gyro en rad/s).
 static constexpr float RPS_TO_DPS = 57.29577951308232f;   // 180/π
 
 IMUSensor::IMUSensor(uint8_t addr, TwoWire& wire)
     : addr_(addr),
-      wire_(&wire),
-      // sensorID=55 es solo un identificador para Adafruit_Sensor; no afecta I2C.
-      bno_(55, addr, &wire) {}
+      wire_(&wire) {}
 
-bool IMUSensor::begin(OpMode mode, bool useExternalCrystal) {
-    // Adafruit_BNO055::begin():
-    //   - Hace Wire.begin() si no se hizo antes
-    //   - Espera ~650 ms al boot del chip y verifica CHIP_ID
-    //   - Setea UNIT_SEL (gyro en rps!, accel m/s², euler deg)
-    //   - Aplica el modo pedido
-    // Internamente bloquea ~850 ms en frío. No es async.
-    if (!bno_.begin(static_cast<adafruit_bno055_opmode_t>(mode))) {
+bool IMUSensor::begin() {
+    if (!mpu_.begin(addr_, wire_)) {
         return false;
     }
 
-    mode_ = mode;
+    mpu_.setAccelerometerRange(MPU6050_RANGE_8_G);
+    mpu_.setGyroRange(MPU6050_RANGE_500_DEG);
+    mpu_.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
     // I2C a 400 kHz (Adafruit deja el default de Wire, típicamente 100 kHz).
-    // Lo subimos después del begin() para no interferir con su sondeo inicial.
     wire_->setClock(400000);
-
-    // Cristal externo del módulo GY-BNO055.
-    // Nota: setExtCrystalUse necesita estar en CONFIG mode internamente; la lib
-    // ya lo maneja (hace switch a CONFIG, escribe el bit, vuelve al modo previo).
-    bno_.setExtCrystalUse(useExternalCrystal);
 
     return true;
 }
@@ -43,82 +31,56 @@ bool IMUSensor::isConnected() {
     return wire_->endTransmission() == 0;
 }
 
-bool IMUSensor::setMode(OpMode m) {
-    // Adafruit::setMode es void; no podemos validar. Marcamos el estado local
-    // y asumimos éxito. El delay de transición (25 ms) lo hace la lib.
-    bno_.setMode(static_cast<adafruit_bno055_opmode_t>(m));
-    mode_ = m;
-    return true;
+void IMUSensor::calibrate(uint16_t samples) {
+    if (samples == 0) return;
+
+    float accelSumX = 0.0f, accelSumY = 0.0f, accelSumZ = 0.0f;
+    float gyroSumX  = 0.0f, gyroSumY  = 0.0f, gyroSumZ  = 0.0f;
+
+    for (uint16_t i = 0; i < samples; ++i) {
+        sensors_event_t accelEvt, gyroEvt, tempEvt;
+        mpu_.getEvent(&accelEvt, &gyroEvt, &tempEvt);
+
+        accelSumX += accelEvt.acceleration.x;
+        accelSumY += accelEvt.acceleration.y;
+        accelSumZ += accelEvt.acceleration.z;
+
+        gyroSumX += gyroEvt.gyro.x * RPS_TO_DPS;
+        gyroSumY += gyroEvt.gyro.y * RPS_TO_DPS;
+        gyroSumZ += gyroEvt.gyro.z * RPS_TO_DPS;
+
+        delay(5);
+    }
+
+    accelBias_.x = accelSumX / samples;
+    accelBias_.y = accelSumY / samples;
+    accelBias_.z = accelSumZ / samples;
+
+    gyroBias_.x = gyroSumX / samples;
+    gyroBias_.y = gyroSumY / samples;
+    gyroBias_.z = gyroSumZ / samples;
 }
 
 // ================= Lecturas =================
 
-void IMUSensor::copyVec(const imu::Vector<3>& src, Vec3& dst, float scale) {
-    dst.x = static_cast<float>(src.x()) * scale;
-    dst.y = static_cast<float>(src.y()) * scale;
-    dst.z = static_cast<float>(src.z()) * scale;
-}
-
 IMUSensor::Vec3 IMUSensor::readAccel() {
-    Vec3 v;
-    copyVec(bno_.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER), v);
-    return v;
+    sensors_event_t accelEvt, gyroEvt, tempEvt;
+    mpu_.getEvent(&accelEvt, &gyroEvt, &tempEvt);
+
+    return Vec3{
+        accelEvt.acceleration.x - accelBias_.x,
+        accelEvt.acceleration.y - accelBias_.y,
+        accelEvt.acceleration.z - accelBias_.z
+    };
 }
 
 IMUSensor::Vec3 IMUSensor::readGyro() {
-    Vec3 v;
-    // Adafruit configura UNIT_SEL con gyro en RPS. Convertimos a DPS para
-    // mantener la misma semántica del driver anterior.
-    copyVec(bno_.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE), v);
-    return v;
-}
+    sensors_event_t accelEvt, gyroEvt, tempEvt;
+    mpu_.getEvent(&accelEvt, &gyroEvt, &tempEvt);
 
-IMUSensor::Vec3 IMUSensor::readMag() {
-    Vec3 v;
-    copyVec(bno_.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER), v);
-    return v;
-}
-
-bool IMUSensor::readLinearAccel(Vec3& v) {
-    copyVec(bno_.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL), v);
-    return true;
-}
-
-bool IMUSensor::readGravity(Vec3& v) {
-    copyVec(bno_.getVector(Adafruit_BNO055::VECTOR_GRAVITY), v);
-    return true;
-}
-
-bool IMUSensor::readEuler(Euler& e) {
-    // En Adafruit VECTOR_EULER devuelve (x=heading, y=roll, z=pitch) en deg.
-    const imu::Vector<3> ev = bno_.getVector(Adafruit_BNO055::VECTOR_EULER);
-    e.heading = static_cast<float>(ev.x());
-    e.roll    = static_cast<float>(ev.y());
-    e.pitch   = static_cast<float>(ev.z());
-    return true;
-}
-
-bool IMUSensor::readQuaternion(Quat& q) {
-    const imu::Quaternion qv = bno_.getQuat();
-    q.w = static_cast<float>(qv.w());
-    q.x = static_cast<float>(qv.x());
-    q.y = static_cast<float>(qv.y());
-    q.z = static_cast<float>(qv.z());
-    return true;
-}
-
-bool IMUSensor::readCalibStatus(CalibStatus& c) {
-    uint8_t sys = 0, gyr = 0, acc = 0, mag = 0;
-    bno_.getCalibration(&sys, &gyr, &acc, &mag);
-    c.sys = sys; c.gyr = gyr; c.acc = acc; c.mag = mag;
-    return true;
-}
-
-bool IMUSensor::readTemperature(int8_t& t_c) {
-    t_c = bno_.getTemp();
-    return true;
-}
-
-bool IMUSensor::isFullyCalibrated() {
-    return bno_.isFullyCalibrated();
+    return Vec3{
+        gyroEvt.gyro.x * RPS_TO_DPS - gyroBias_.x,
+        gyroEvt.gyro.y * RPS_TO_DPS - gyroBias_.y,
+        gyroEvt.gyro.z * RPS_TO_DPS - gyroBias_.z
+    };
 }

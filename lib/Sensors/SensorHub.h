@@ -36,8 +36,6 @@ public:
         bool    braking;
         IMUSensor::Vec3    imu_accel;
         IMUSensor::Vec3    imu_gyro;
-        IMUSensor::Vec3    imu_mag;
-        IMUSensor::Euler   imu_euler;
         uint16_t tof_sensor1_mm;  // range from sensor1 (addr 0x30)
         uint16_t tof_sensor2_mm;  // range from sensor2 (addr 0x29)
         uint32_t uptime_ms;

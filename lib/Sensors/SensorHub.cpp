@@ -15,6 +15,7 @@ void SensorHub::begin() {
     encL_.begin();
     encR_.begin();
     imu_.begin();
+    imu_.calibrate();
     tof_.begin();
     Serial.println("SensorHub initialized");
 }
@@ -26,8 +27,6 @@ void SensorHub::sample() {
     last_.vel_right_cps    = encR_.computeCountsPerSec();
     last_.imu_accel        = imu_.readAccel();
     last_.imu_gyro         = imu_.readGyro();
-    last_.imu_mag          = imu_.readMag();
-    imu_.readEuler(last_.imu_euler);
     last_.tof_sensor1_mm   = tof_.readSensor1();
     last_.tof_sensor2_mm   = tof_.readSensor2();
     last_.uptime_ms        = millis();

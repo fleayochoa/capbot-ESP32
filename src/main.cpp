@@ -3,13 +3,11 @@
 // Modos (ver Cfg::MsgType::MODE_CMD):
 //   0 MANUAL              : MOTOR_CMD de teleop (PWM crudo) maneja los motores
 //                           directo.
-//   1 AUTONOMOUS_NAV      : VEL_CMD lleva el setpoint de nav2 (vía
-//                           jetson-bridge): float32 linear m/s, float32
-//                           angular rad (heading absoluto). El eje lineal
-//                           corre el PID de velocidad directo; el eje angular
-//                           corre la cascada posición->velocidad
+//   1 AUTONOMOUS_NAV      : VEL_CMD lleva el setpoint de velocidad de nav2
+//                           (vía jetson-bridge): float32 linear m/s, float32
+//                           angular rad/s. El PID de velocidad on-board
 //                           (Controlador::computeVelocity, mismas ganancias
-//                           que el lazo interno de WAYPOINT) cerrando el lazo
+//                           que el lazo interno de WAYPOINT) cierra el lazo
 //                           con la odometría y maneja los motores. Es el modo
 //                           autónomo por defecto. MOTOR_CMD se ignora en este
 //                           modo.
@@ -79,10 +77,10 @@ static struct {
     float w      = 0.0f;
 } g_setpoint;
 
-// Setpoint de nav2 recibido vía VEL_CMD en AUTONOMOUS_NAV.
+// Setpoint de velocidad de nav2 recibido vía VEL_CMD en AUTONOMOUS_NAV.
 static struct {
     float    linVel = 0.0f;  // m/s
-    float    angPos = 0.0f;  // grados, heading absoluto (mismo eje que odometría theta)
+    float    angVel = 0.0f;  // grados/s
     uint32_t lastMs = 0;     // millis() del último VEL_CMD recibido en este modo
 } g_navVel;
 
@@ -117,13 +115,13 @@ static void onMotorCmd(int16_t left, int16_t right, int16_t aux, void* /*ctx*/) 
 
 static void onVelCmd(float linear, float angular, void* /*ctx*/) {
     if (g_mode == RobotMode::AUTONOMOUS_NAV) {
-        // linear: m/s. angular: rad, heading absoluto (no velocidad angular)
-        // vía jetson-bridge. Convertimos angular a grados para que coincida
+        // linear: m/s, angular: rad/s (Twist de nav2 /cmd_vel vía
+        // jetson-bridge). Convertimos angular a grados/s para que coincida
         // con el eje angular usado en el resto del firmware (odometría,
         // PID). Sólo guardamos el setpoint; runVelocityControl() en
-        // ControlTaskCode corre la cascada a dt fijo (20ms) contra la odometría.
+        // ControlTaskCode corre el PID a dt fijo (20ms) contra la odometría.
         g_navVel.linVel = linear;
-        g_navVel.angPos = angular * RAD_TO_DEG;
+        g_navVel.angVel = angular * RAD_TO_DEG;
         g_navVel.lastMs = millis();
     }
     // Fuera de AUTONOMOUS_NAV se ignora: el teleop crudo (MANUAL) o la
@@ -189,7 +187,7 @@ static void onModeCmd(uint8_t mode, void* /*ctx*/) {
         // como "setpoint fresco" y el robot arrancaría a moverse solo al
         // entrar al modo, antes de que nav2 mande nada nuevo.
         g_navVel.linVel = 0.0f;
-        g_navVel.angPos = 0.0f;
+        g_navVel.angVel = 0.0f;
         g_navVel.lastMs = 0;
     }
 }
@@ -260,7 +258,7 @@ static void runVelocityControl(float dt) {
 
     Controlador::VelSetpoint sp;
     sp.linearVelocity  = g_navVel.linVel;
-    sp.angularPosition = g_navVel.angPos;
+    sp.angularVelocity = g_navVel.angVel;
 
     const Controlador::MotorCommand cmd = g_controller.computeVelocity(sp, st, dt);
     g_setpoint.v = cmd.targetLinVel;
@@ -275,7 +273,11 @@ static void runTelemetry() {
 
     g_sensors.sample();
     g_sensors.feedMotorStatus(g_motors.leftPwm(), g_motors.rightPwm(), g_motors.isBraking());
-    const StateEstimate state = g_odometry.update(g_sensors.last(), true);
+    const StateEstimate state = g_odometry.update(g_sensors.last());
+
+    // TODO: debug temporal, quitar
+    //Serial.printf("state x=%.3f y=%.3f theta=%.2f v=%.3f omega=%.2f\n",
+    //              state.x, state.y, state.theta, state.v, state.omega);
 
     SensorHub::ControlTelemetry ctrl;
     ctrl.sp_x  = g_setpoint.x;
@@ -322,6 +324,8 @@ void TelemetryTaskCode(void * pvParameters);
 void setup() {
     pinMode(Pins::STATUS_LED, OUTPUT);
     digitalWrite(Pins::STATUS_LED, HIGH);
+
+    //Serial.begin(Cfg::SERIAL_BAUD);  // TODO: debug temporal, quitar — Serial2 es para la Jetson
 
     g_link.begin();
     g_motors.begin();

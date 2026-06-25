@@ -1,15 +1,16 @@
 /**
- * Lector del sensor IMU (GY-BNO055) usando la librería Adafruit_BNO055.
- * 
- * Dirección I2C por defecto 0x28 cuando ADC está cortocircuitado a GND, 0x29 cuando está a VCC.
- * Se usa la librería Adafruit_BNO055, que maneja la configuración y lectura del sensor. 
+ * Lector del sensor IMU (GY-MPU6050) usando la librería Adafruit_MPU6050.
+ *
+ * Dirección I2C por defecto 0x68 (AD0 a GND), 0x69 cuando AD0 está a VCC.
+ * Solo se exponen acelerómetro y giroscopio: el MPU6050 no tiene magnetómetro
+ * ni fusión de sensores interna (a diferencia del BNO055 que reemplaza).
  * El IMU se conecta al bus I2C compartido con otros dispositivos como los TOF.
- * 
+ *
  * Dependencias (agregar a platformio.ini):
  * lib_deps =
  *      ...
- *      adafruit/Adafruit BNO055 @ ^1.6.4
- *       adafruit/Adafruit Unified Sensor @ ^1.1.14
+ *      adafruit/Adafruit MPU6050 @ ^2.2.6
+ *      adafruit/Adafruit Unified Sensor @ ^1.1.15
  */
 
 #pragma once
@@ -17,71 +18,36 @@
 #include <Wire.h>
 #include <stdint.h>
 
-#include <Adafruit_BNO055.h>
-#include <utility/imumaths.h>
+#include <Adafruit_MPU6050.h>
 
 class IMUSensor {
 public:
-    
-    static constexpr uint8_t DEFAULT_ADDR = 0x28;
- 
-    // Modos relevantes.
-    enum class OpMode : uint8_t {
-        CONFIG   = OPERATION_MODE_CONFIG,
-        ACCONLY  = OPERATION_MODE_ACCONLY,
-        MAGONLY  = OPERATION_MODE_MAGONLY,
-        GYROONLY = OPERATION_MODE_GYRONLY,
-        AMG      = OPERATION_MODE_AMG,
-        IMU      = OPERATION_MODE_IMUPLUS,   // fusión accel+gyro
-        COMPASS  = OPERATION_MODE_COMPASS,
-        M4G      = OPERATION_MODE_M4G,
-        NDOF_FMC_OFF = OPERATION_MODE_NDOF_FMC_OFF,
-        NDOF     = OPERATION_MODE_NDOF,      // fusión 9DOF completa
-    };
- 
-    struct Vec3   { float x, y, z; };
-    struct Euler  { float heading, roll, pitch; };   // grados
-    struct Quat   { float w, x, y, z; };
-    struct CalibStatus { uint8_t sys, gyr, acc, mag; };  // 0..3 c/u
- 
+
+    static constexpr uint8_t DEFAULT_ADDR = 0x68;
+
+    struct Vec3 { float x, y, z; };
+
     explicit IMUSensor(uint8_t addr = DEFAULT_ADDR, TwoWire& wire = Wire);
- 
-    // Inicializa I2C, verifica el chip y configura el modo. useExternalCrystal
-    // activa el XTAL de 32.768 kHz del GY-BNO055 (recomendado).
-    bool begin(OpMode mode = OpMode::NDOF, bool useExternalCrystal = true);
- 
+
+    // Inicializa I2C y verifica el chip.
+    bool begin();
+
     // Ping I2C directo. No usa la lib de Adafruit (no expone este check).
     bool isConnected();
- 
-    bool setMode(OpMode m);
-    OpMode mode() const { return mode_; }
- 
-    // ---- Lecturas ----
-    // Adafruit devuelve Vector<3> sin indicar error I2C. 
-    // Para detectar desconexión usar isConnected() periódicamente.
-    Vec3 readAccel       ();   // m/s²
-    Vec3 readGyro        ();   // dps (convertido desde rps interno)
-    Vec3 readMag         ();   // µT
-    bool readEuler       (Euler& e);   // deg
-    bool readQuaternion  (Quat&  q);
-    bool readLinearAccel (Vec3&  v);   // m/s² (sólo modos fusión)
-    bool readGravity     (Vec3&  v);   // m/s² (sólo modos fusión)
-    bool readCalibStatus (CalibStatus& c);
-    bool readTemperature (int8_t& t_c);
- 
-    // Helper: true si los 4 subsistemas están calibrados (sys/gyr/acc/mag == 3).
-    bool isFullyCalibrated();
- 
-    // Acceso al objeto interno por si el consumidor necesita APIs avanzadas
-    // de Adafruit (offsets, self-test, event-based reads, etc.).
-    Adafruit_BNO055& raw() { return bno_; }
- 
+
+    // Calibración estática: el robot debe quedar quieto. Promedia `samples`
+    // lecturas crudas y guarda el resultado como error sistemático (bias) de
+    // cada eje, que se resta de las lecturas posteriores.
+    void calibrate(uint16_t samples = 1000);
+
+    // ---- Lecturas (ya corregidas por el bias de calibrate()) ----
+    Vec3 readAccel();   // m/s²
+    Vec3 readGyro();    // dps
+
 private:
     uint8_t          addr_;
     TwoWire*         wire_;
-    Adafruit_BNO055  bno_;
-    OpMode           mode_ = OpMode::CONFIG;
- 
-    // Helper: copia imu::Vector<3> a Vec3 con un escalar opcional.
-    static void copyVec(const imu::Vector<3>& src, Vec3& dst, float scale = 1.0f);
+    Adafruit_MPU6050 mpu_;
+    Vec3             accelBias_{};
+    Vec3             gyroBias_{};
 };
