@@ -4,10 +4,10 @@
 #include <Arduino.h>
 #include "SensorHub.h"
 
+// Estado cinemático crudo del robot, derivado únicamente de encoders
+// (sin IMU, sin integración de pose). La pose (x,y,theta) se integra
+// aguas arriba, en la Jetson (EKF), a partir de v/omega.
 struct StateEstimate {
-    float x;
-    float y;
-    float theta;  // grados
     float v;      // m/s
     float omega;  // grados/s
 };
@@ -20,23 +20,18 @@ public:
 
     void begin();
 
-    // Calcula la cinemática usando la telemetría agregada del SensorHub.
+    // Calcula v/omega instantáneos (cinemática diferencial pura) a partir
+    // de la telemetría agregada del SensorHub. Sin filtrado ni fusión.
     StateEstimate update(const SensorHub::Telemetry& telemetry);
-    
+
     void reset();
 
     const StateEstimate& state() const { return state_; }
 
 private:
-    static constexpr uint8_t FILTER_WIN = 10;
-
     float wheelDiameter_;
     float cpr_;
     float wheelToCenter_;
     StateEstimate state_{};
     uint32_t lastUpdateMs_;
-
-    float omegaBuf_[FILTER_WIN]{};
-    uint8_t filterIdx_ = 0;
-    bool filterFull_ = false;
 };

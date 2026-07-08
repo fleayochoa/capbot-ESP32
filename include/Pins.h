@@ -34,7 +34,7 @@ constexpr uint8_t LEDC_CH_RIGHT = 1;
 // --- LED de estado (opcional) ---
 constexpr uint8_t STATUS_LED = 2;  // LED integrado en ESP32 WROOM
 
-// --- Reservados para sensores (I2C IMU, encoders, etc.)
+// --- I2C compartido (sensores ToF) ---
 constexpr uint8_t I2C_SDA = 21;
 constexpr uint8_t I2C_SCL = 22;
 constexpr uint8_t ENC_LEFT_A = 33;  

@@ -1,6 +1,6 @@
-// Agregador de sensores. Hoy maneja dos encoders, pero la idea es que
-// crezca (IMU, voltaje de batería, corrientes, temperaturas, etc.) sin
-// cambiar el código que lo consume.
+// Agregador de sensores. Hoy maneja dos encoders y ToF, pero la idea es que
+// crezca (voltaje de batería, corrientes, temperaturas, etc.) sin cambiar el
+// código que lo consume.
 //
 // La telemetría se serializa en JSON UTF-8 usando ArduinoJson. Esto permite
 // que la Jetson la vuelque directamente al WebSocket sin re-parsear. Cuando
@@ -14,7 +14,6 @@
 #include "Config.h"
 #include "QuadratureEncoder.h"
 #include "CapTypes.h"
-#include "IMUSensor.h"
 #include "ToFSensors.h"
 
 struct StateEstimate;
@@ -34,8 +33,6 @@ public:
         int16_t motor_pwm_left;
         int16_t motor_pwm_right;
         bool    braking;
-        IMUSensor::Vec3    imu_accel;
-        IMUSensor::Vec3    imu_gyro;
         uint16_t tof_sensor1_mm;  // range from sensor1 (addr 0x30)
         uint16_t tof_sensor2_mm;  // range from sensor2 (addr 0x29)
         uint32_t uptime_ms;
@@ -54,11 +51,11 @@ public:
     void feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking);
 
     struct ControlTelemetry {
-        float sp_x, sp_y, sp_ang, sp_v, sp_w;
+        float sp_v, sp_w;
     };
 
     // Serializa la telemetría a JSON en el buffer dado. Devuelve bytes
-    // escritos (sin NUL final) o 0 en error. mode: "manual" | "nav2" | "waypoint".
+    // escritos (sin NUL final) o 0 en error. mode: "manual" | "nav2".
     size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, const char* mode, const ControlTelemetry& ctrl);
 
     const Telemetry& last() const { return last_; }
@@ -67,6 +64,5 @@ private:
     QuadratureEncoder encL_;
     QuadratureEncoder encR_;
     Telemetry last_{};
-    IMUSensor imu_;
     ToFSensors tof_;
 };

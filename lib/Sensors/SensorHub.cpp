@@ -14,8 +14,6 @@ SensorHub::SensorHub(Capbot::encoderPins encPins, pcnt_unit_t encUnitLeft,
 void SensorHub::begin() {
     encL_.begin();
     encR_.begin();
-    imu_.begin();
-    imu_.calibrate();
     tof_.begin();
     Serial.println("SensorHub initialized");
 }
@@ -25,8 +23,6 @@ void SensorHub::sample() {
     last_.enc_right        = encR_.read();
     last_.vel_left_cps     = encL_.computeCountsPerSec();
     last_.vel_right_cps    = encR_.computeCountsPerSec();
-    last_.imu_accel        = imu_.readAccel();
-    last_.imu_gyro         = imu_.readGyro();
     last_.tof_sensor1_mm   = tof_.readSensor1();
     last_.tof_sensor2_mm   = tof_.readSensor2();
     last_.uptime_ms        = millis();
@@ -46,24 +42,16 @@ size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate
         u["pwm_left"] = last_.motor_pwm_left;
         u["pwm_right"] = last_.motor_pwm_right;
 
+    // v/omega crudos de cinemática de ruedas (sin IMU, sin filtrado): la
+    // integración de pose y cualquier suavizado quedan del lado de la Jetson
+    // (EKF), no aquí.
     JsonObject odo = doc.createNestedObject("odo");
-    odo["x"]  = state.x;
-    odo["y"]  = state.y;
-    odo["a"] = state.theta;
-    odo["v"]  = state.v;
+    odo["v"] = state.v;
     odo["w"] = state.omega;
 
     JsonObject sp = doc.createNestedObject("sp");
-    sp["x"] = ctrl.sp_x;
-    sp["y"] = ctrl.sp_y;
-    sp["a"] = ctrl.sp_ang;
     sp["v"] = ctrl.sp_v;
     sp["w"] = ctrl.sp_w;
-    
-    JsonObject err = doc.createNestedObject("error");
-    err["pos"] = sqrt((ctrl.sp_x - state.x) * (ctrl.sp_x - state.x) + (ctrl.sp_y - state.y) * (ctrl.sp_y - state.y));
-    err["ang"] = atan2(ctrl.sp_y - state.y, ctrl.sp_x - state.x) * RAD_TO_DEG
-                                        - state.theta;
 
     JsonObject tof = doc.createNestedObject("tof");
     tof["t1"]  = last_.tof_sensor1_mm;

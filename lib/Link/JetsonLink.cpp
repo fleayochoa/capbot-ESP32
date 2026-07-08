@@ -61,13 +61,6 @@ void JetsonLink::dispatchFrame() {
             if (cbPidParam_) cbPidParam_(p[0], p[1], value, ctxPidParam_);
             break;
         }
-        case Cfg::MsgType::SETPOINT_COMP: {
-            if (n < 6) return;
-            float value;
-            memcpy(&value, &p[2], sizeof(float));
-            if (cbSetpoint_) cbSetpoint_(p[0], value, ctxSetpoint_);
-            break;
-        }
         case Cfg::MsgType::MODE_CMD: {
             if (n < 1) return;
             if (cbMode_) cbMode_(p[0], ctxMode_);
