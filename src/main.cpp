@@ -194,9 +194,20 @@ static void runWatchdog() {
 }
 
 static void runVelocityControl(float dt) {
+    // g_wheelSp actúa como buffer: el PID sigue aplicando el ÚLTIMO setpoint
+    // recibido mientras la Jetson calcula el siguiente (nav2 publica a ~5 Hz,
+    // este lazo corre a 50 Hz), así el control es continuo y sin tirones.
+    if (g_wheelSp.lastMs == 0) {
+        // Recién entrados a NAV: sin setpoint todavía, quieto.
+        if (!g_motors.isBraking()) g_motors.brake();
+        return;
+    }
     if (millis() - g_wheelSp.lastMs > Cfg::NAV_VEL_TIMEOUT_MS) {
-        // La Jetson dejó de mandar VEL_CMD: frenamos pero nos quedamos en
-        // AUTONOMOUS_NAV a la espera de un setpoint fresco.
+        // Fail-safe: la Jetson dejó de mandar VEL_CMD demasiado tiempo.
+        // Vaciamos el buffer y frenamos, pero nos quedamos en AUTONOMOUS_NAV
+        // a la espera de un setpoint fresco.
+        g_wheelSp.left  = 0.0f;
+        g_wheelSp.right = 0.0f;
         if (!g_motors.isBraking()) g_motors.brake();
         return;
     }

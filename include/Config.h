@@ -37,7 +37,12 @@ constexpr size_t RX_BUFFER_BYTES = 512;
 // Tiempo máximo sin un VEL_CMD fresco en este modo antes de frenar. Cubre
 // el caso en que nav2 deja de publicar /cmd_vel pero el link con la Jetson
 // (heartbeat) sigue vivo, lo cual JETSON_WATCHDOG_MS no detecta.
-constexpr uint32_t NAV_VEL_TIMEOUT_MS = 300;
+// 1000 ms: el último setpoint queda bufferizado (g_wheelSp) y el PID lo
+// sigue aplicando entre ciclos del planner (nav2 publica a ~5 Hz = 200 ms;
+// con 300 ms cualquier jitter frenaba el robot a tirones). Es solo un
+// fail-safe: el puente de la Jetson ya manda un VEL_CMD(0,0) explícito a
+// los 500 ms si /cmd_vel se corta.
+constexpr uint32_t NAV_VEL_TIMEOUT_MS = 1000;
 
 // -------- Cinemática de ruedas --------
 // Cuentas por revolución con decodificación 4x (QuadratureEncoder cuenta los
