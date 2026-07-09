@@ -50,10 +50,15 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 // PLACEHOLDER: ganancias estimadas al convertir desde el PID lineal
 // anterior (m/s) por el radio de rueda (~0.0335 m). Falta retunear en
 // hardware ahora que el error de entrada es rad/s por rueda.
+//
+// leftStartPwm/rightStartPwm: medido en banco (modo MANUAL) como el duty
+// mínimo al que cada rueda rompe a girar desde parada.
 static const Controlador::Config DEFAULT_CTRL_CFG = {
     { 0.15f, 0.01f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // leftWheelPid
     { 0.15f, 0.01f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // rightWheelPid
-    32767.0f    // maxMotorOutput
+    32767.0f,   // maxMotorOutput
+    12812.0f,   // leftStartPwm
+    12812.0f    // rightStartPwm
 };
 
 // ---- Instancias globales ----

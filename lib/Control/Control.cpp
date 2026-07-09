@@ -38,8 +38,29 @@ Controlador::MotorCommand Controlador::computeVelocity(
     const float leftError  = setpoint.leftWheelVel  - state.leftWheelVel;
     const float rightError = setpoint.rightWheelVel - state.rightWheelVel;
 
-    const float leftEffort  = leftWheelPid_.compute(leftError, dt);
-    const float rightEffort = rightWheelPid_.compute(rightError, dt);
+    float leftEffort  = leftWheelPid_.compute(leftError, dt);
+    float rightEffort = rightWheelPid_.compute(rightError, dt);
+
+    // Feedforward de arranque: sólo se aplica en el instante de partir desde
+    // parado (rueda ya en movimiento -> no se suma, para no sumar un empujón
+    // fijo en cada ciclo y desestabilizar el lazo cerrado).
+    constexpr float kStationaryThreshold = 0.05f;  // rad/s
+    constexpr float kMinMoveSetpoint     = 0.05f;  // rad/s
+
+    if (state.leftWheelVel > -kStationaryThreshold && state.leftWheelVel < kStationaryThreshold) {
+        if (setpoint.leftWheelVel > kMinMoveSetpoint) {
+            leftEffort += config_.leftStartPwm;
+        } else if (setpoint.leftWheelVel < -kMinMoveSetpoint) {
+            leftEffort -= config_.leftStartPwm;
+        }
+    }
+    if (state.rightWheelVel > -kStationaryThreshold && state.rightWheelVel < kStationaryThreshold) {
+        if (setpoint.rightWheelVel > kMinMoveSetpoint) {
+            rightEffort += config_.rightStartPwm;
+        } else if (setpoint.rightWheelVel < -kMinMoveSetpoint) {
+            rightEffort -= config_.rightStartPwm;
+        }
+    }
 
     cmd.left  = clampFloat(leftEffort,  -config_.maxMotorOutput, config_.maxMotorOutput);
     cmd.right = clampFloat(rightEffort, -config_.maxMotorOutput, config_.maxMotorOutput);
