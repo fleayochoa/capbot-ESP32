@@ -14,16 +14,12 @@
 #include "Config.h"
 #include "QuadratureEncoder.h"
 #include "CapTypes.h"
-#include "IMUSensor.h"
-#include "ToFSensors.h"
-
-struct StateEstimate;
 
 class SensorHub {
 public:
 
     SensorHub(Capbot::encoderPins encPins, pcnt_unit_t encUnitLeft,
-         pcnt_unit_t encUnitRight, uint8_t tofXshut1, uint8_t tofXshut2,
+         pcnt_unit_t encUnitRight,
          uint16_t filter = 100);
 
     struct Telemetry {
@@ -34,15 +30,14 @@ public:
         int16_t motor_pwm_left;
         int16_t motor_pwm_right;
         bool    braking;
-        IMUSensor::Vec3    imu_accel;
-        IMUSensor::Vec3    imu_gyro;
-        IMUSensor::Vec3    imu_mag;
-        IMUSensor::Euler   imu_euler;
-        uint16_t tof_sensor1_mm;  // range from sensor1 (addr 0x30)
-        uint16_t tof_sensor2_mm;  // range from sensor2 (addr 0x29)
         uint32_t uptime_ms;
     };
 
+    // Setpoint de velocidad por rueda vigente (VEL_CMD), para telemetría.
+    struct ControlTelemetry {
+        float sp_left;   // rad/s
+        float sp_right;  // rad/s
+    };
 
     // Configura los encoders. Llamar en setup().
     void begin();
@@ -55,13 +50,9 @@ public:
     // MotorDriver. Así el payload es autocontenido.
     void feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking);
 
-    struct ControlTelemetry {
-        float sp_x, sp_y, sp_ang, sp_v, sp_w;
-    };
-
     // Serializa la telemetría a JSON en el buffer dado. Devuelve bytes
-    // escritos (sin NUL final) o 0 en error. mode: "manual" | "nav2" | "waypoint".
-    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state, const char* mode, const ControlTelemetry& ctrl);
+    // escritos (sin NUL final) o 0 en error. mode: "manual" | "nav2".
+    size_t buildPayload(uint8_t* out, size_t out_cap, const char* mode, const ControlTelemetry& ctrl);
 
     const Telemetry& last() const { return last_; }
 
@@ -69,6 +60,4 @@ private:
     QuadratureEncoder encL_;
     QuadratureEncoder encR_;
     Telemetry last_{};
-    IMUSensor imu_;
-    ToFSensors tof_;
 };

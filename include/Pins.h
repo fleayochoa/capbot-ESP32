@@ -19,13 +19,13 @@ namespace Pins {
 // durante el boot, lo que hacía que el ESP32 seleccionara flash a 1.8V en
 // lugar de 3.3V y no llegara a correr el firmware (sin ESP_HELLO, sin nada).
 constexpr uint8_t LEFT_IN1 = 4;
-constexpr uint8_t LEFT_IN2 = 15;
-constexpr uint8_t LEFT_ENA = 18;   // PWM
+constexpr uint8_t LEFT_IN2 = 18;
+constexpr uint8_t LEFT_ENA = 25;   // PWM
 
 // --- Motor derecho ---
 constexpr uint8_t RIGHT_IN1 = 14;
 constexpr uint8_t RIGHT_IN2 = 13;
-constexpr uint8_t RIGHT_ENA = 5;  // PWM
+constexpr uint8_t RIGHT_ENA = 27;  // PWM
 
 // --- Canales LEDC (ESP32 PWM) ---
 constexpr uint8_t LEDC_CH_LEFT  = 0;
@@ -35,15 +35,12 @@ constexpr uint8_t LEDC_CH_RIGHT = 1;
 constexpr uint8_t STATUS_LED = 2;  // LED integrado en ESP32 WROOM
 
 // --- Reservados para sensores (I2C IMU, encoders, etc.)
-constexpr uint8_t I2C_SDA = 21;
-constexpr uint8_t I2C_SCL = 22;
-constexpr uint8_t ENC_LEFT_A = 33;  
-constexpr uint8_t ENC_LEFT_B = 32;
-constexpr uint8_t ENC_RIGHT_A = 26;
-constexpr uint8_t ENC_RIGHT_B = 27;
 
-// --- VL53L0X ToF sensors (XSHUT) ---
-constexpr uint8_t TOF_XSHUT1 = 25;   // sensor1 → reassigned to 0x30
-constexpr uint8_t TOF_XSHUT2 = 23;  // sensor2 → stays at 0x29
+constexpr uint8_t ENC_LEFT_A = 35;  
+constexpr uint8_t ENC_LEFT_B = 34;
+constexpr uint8_t ENC_RIGHT_A = 33;
+constexpr uint8_t ENC_RIGHT_B = 32;
+
+
 
 }  // namespace Pins

@@ -1,12 +1,12 @@
-// Controlador jerárquico en cascada para un robot de tracción diferencial.
+// Controlador de velocidad por rueda para un robot de tracción diferencial.
 //
 // Arquitectura de control:
-//   1. Eje Lineal : PID de Posición Lineal -> Referencia de Vel. Lineal -> PID de Vel. Lineal
-//   2. Eje Angular: PID de Orientación Absoluta -> Referencia de Vel. Angular -> PID de Vel. Angular
+//   Rueda izquierda: PID de velocidad directo sobre el setpoint (rad/s)
+//   Rueda derecha  : PID de velocidad directo sobre el setpoint (rad/s)
 //
-// Lógica de tolerancia (Deadband / Freno):
-//   Si el error de posición lineal es menor al umbral especificado (theta),
-//   se anula la salida de los motores (salida 0) para frenar de forma segura.
+// El setpoint de cada rueda viene de la Jetson (VEL_CMD), ya calculado a
+// partir de /cmd_vel + cinemática diferencial (jetson-bridge). No hay
+// cinemática, mezcla lineal/angular ni lazo de posición on-board.
 
 #pragma once
 #include <Arduino.h>
@@ -15,42 +15,23 @@
 class Controlador {
 public:
     struct Config {
-        // Controladores para el eje lineal
-        PidController::Config linearPosPid;
-        PidController::Config linearVelPid;
+        PidController::Config leftWheelPid;
+        PidController::Config rightWheelPid;
 
-        // Controladores para el eje angular
-        PidController::Config angularPosPid;
-        PidController::Config angularVelPid;
-
-        // Umbral de tolerancia de error de posición (theta) bajo el cual se aplica freno
-        float thetaPositionTolerance;
-        float thetaAngleTolerance;
-
-        // Límite absoluto para la señal combinada enviada a cada motor
+        // Límite absoluto para la señal enviada a cada motor
         float maxMotorOutput;
     };
 
     // Estructura para agrupar las mediciones actuales (realimentación)
     struct State {
-        float xPosition;
-        float yPosition;
-        float linearVelocity;
-        float angularPosition; // Orientación absoluta (yaw/theta)
-        float angularVelocity;
+        float leftWheelVel;   // rad/s
+        float rightWheelVel;  // rad/s
     };
 
-    // Estructura para los objetivos de control
-    struct Setpoint {
-        float xPosition;
-        float yPosition;
-        float angularPosition;
-    };
-
-    // Objetivo de control en modo velocidad directa (nav2 /cmd_vel)
-    struct VelSetpoint {
-        float linearVelocity;   // m/s
-        float angularPosition;  // grados, heading absoluto (mismo eje que State.angularPosition)
+    // Objetivo de control: setpoint de velocidad por rueda (VEL_CMD)
+    struct WheelSetpoint {
+        float leftWheelVel;   // rad/s
+        float rightWheelVel;  // rad/s
     };
 
     // Salida final mapeada para los drivers de los motores
@@ -58,8 +39,6 @@ public:
         float left;
         float right;
         bool brake; // Bandera explícita por si se desea invocar motorDriver.brake()
-        float targetLinVel;
-        float targetAngVel;
     };
 
     explicit Controlador(const Config& config);
@@ -70,16 +49,9 @@ public:
     // Actualiza las ganancias y parámetros al vuelo
     void setConfig(const Config& config);
 
-    // Ejecuta el cálculo completo de la cascada y la mezcla diferencial
-    MotorCommand compute(const Setpoint& setpoint, const State& state, float dt);
-
-    // Control para nav2 /cmd_vel: el eje lineal bypasea el lazo de posición y
-    // corre directo el PID de velocidad lineal sobre el setpoint recibido. El
-    // eje angular sí usa la cascada (igual que en modo waypoint), ya que el
-    // setpoint angular que manda nav2 es un heading absoluto, no una
-    // velocidad angular: PID de orientación -> referencia de vel. angular ->
-    // PID de vel. angular.
-    MotorCommand computeVelocity(const VelSetpoint& setpoint, const State& state, float dt);
+    // Control para VEL_CMD: PID de velocidad independiente por rueda, sin
+    // cinemática ni lazo de posición on-board.
+    MotorCommand computeVelocity(const WheelSetpoint& setpoint, const State& state, float dt);
 
     const Config& config() const { return config_; }
 
@@ -87,8 +59,6 @@ private:
     Config config_;
 
     // Instancias de los controladores internos
-    PidController linearPosPid_;
-    PidController linearVelPid_;
-    PidController angularPosPid_;
-    PidController angularVelPid_;
+    PidController leftWheelPid_;
+    PidController rightWheelPid_;
 };

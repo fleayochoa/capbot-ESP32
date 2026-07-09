@@ -75,10 +75,10 @@ void JetsonLink::dispatchFrame() {
         }
         case Cfg::MsgType::VEL_CMD: {
             if (n < 8) return;  // esperamos 2 float32
-            float linear, angular;
-            memcpy(&linear, &p[0], sizeof(float));
-            memcpy(&angular, &p[4], sizeof(float));
-            if (cbVelCmd_) cbVelCmd_(linear, angular, ctxVelCmd_);
+            float wheelLeft, wheelRight;
+            memcpy(&wheelLeft, &p[0], sizeof(float));
+            memcpy(&wheelRight, &p[4], sizeof(float));
+            if (cbWheelVel_) cbWheelVel_(wheelLeft, wheelRight, ctxWheelVel_);
             break;
         }
         default:
