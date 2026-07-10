@@ -47,18 +47,27 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 
 // ---- Default controller config (gains tunable at runtime via PID_PARAM) ----
 //   leftWheelPid / rightWheelPid : rad/s -> esfuerzo motor [-32767, 32767]
-// PLACEHOLDER: ganancias estimadas al convertir desde el PID lineal
-// anterior (m/s) por el radio de rueda (~0.0335 m). Falta retunear en
-// hardware ahora que el error de entrada es rad/s por rueda.
+// PID posicional {kp, ki, kd, outMin, outMax, maxIntegral}.
+// PLACEHOLDER: puntos de partida a escala física (error en rad/s, salida en
+// counts PWM). El feedforward carga con el grueso del esfuerzo; el PID sólo
+// corrige el residuo. Retunear en hardware (Fase 3) vía PID_PARAM.
+//   kp = 1500 : 1 rad/s de error -> ~4.6% del duty máximo
+//   ki = 500  : corrige error estacionario sin dominar la respuesta
+//   maxIntegral = 65 : ki*maxIntegral ~ outMax (anti-windup por clamping)
 //
-// leftStartPwm/rightStartPwm: medido en banco (modo MANUAL) como el duty
-// mínimo al que cada rueda rompe a girar desde parada.
+// kStatic: esfuerzo de fricción (offset). Punto de partida = breakaway
+// medido en banco (12812) menos margen (fricción cinética < estática).
+// kV: pendiente PWM/(rad/s) en régimen. PLACEHOLDER hasta la rampa de
+// caracterización (Fase 2). Ambos tunables en caliente vía PID_PARAM
+// (param_id 3 y 4).
 static const Controlador::Config DEFAULT_CTRL_CFG = {
-    { 0.15f, 0.01f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // leftWheelPid
-    { 0.15f, 0.01f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // rightWheelPid
+    { 1500.0f, 500.0f, 0.0f, -32767.0f , 32767.0f , 65.0f },  // leftWheelPid
+    { 1500.0f, 500.0f, 0.0f, -32767.0f , 32767.0f , 65.0f },  // rightWheelPid
     32767.0f,   // maxMotorOutput
-    12812.0f,   // leftStartPwm
-    12812.0f    // rightStartPwm
+    11500.0f,   // leftKStatic
+    11500.0f,   // rightKStatic
+    1500.0f,    // leftKV
+    1500.0f     // rightKV
 };
 
 // ---- Instancias globales ----
@@ -139,18 +148,20 @@ static void onHeartbeat(void* /*ctx*/) {
 }
 
 // ctrl_id: 0=leftWheelPid, 1=rightWheelPid (ver protocol/udp_frame.py CTRL_*).
+// param_id 0-2: kp/ki/kd. 3-4: kStatic/kV del feedforward de fricción de esa
+// rueda (no son del PID en sí, pero reusan el canal para tunear en caliente).
 static void onPidParam(uint8_t ctrl_id, uint8_t param_id, float value, void* /*ctx*/) {
+    if (ctrl_id > 1) return;
+    const bool left = (ctrl_id == 0);
+
     Controlador::Config cfg = g_controller.config();
-    PidController::Config* pid = nullptr;
-    switch (ctrl_id) {
-        case 0: pid = &cfg.leftWheelPid;   break;
-        case 1: pid = &cfg.rightWheelPid;  break;
-        default: return;
-    }
+    PidController::Config* pid = left ? &cfg.leftWheelPid : &cfg.rightWheelPid;
     switch (param_id) {
         case 0: pid->kp = value; break;
         case 1: pid->ki = value; break;
         case 2: pid->kd = value; break;
+        case 3: (left ? cfg.leftKStatic : cfg.rightKStatic) = value; break;
+        case 4: (left ? cfg.leftKV      : cfg.rightKV)      = value; break;
         default: return;
     }
     g_controller.setConfig(cfg);
