@@ -7,6 +7,16 @@ static inline float clampFloat(float v, float lo, float hi) {
     return v;
 }
 
+// Feedforward de fricción: u_ff = kStatic*sign(sp) + kV*sp.
+// Bajo kMinMoveSetpoint el FF es 0: un setpoint ~0 se maneja sólo con el
+// PID, sin dejar un offset de fricción empujando al robot detenido.
+static inline float frictionFeedforward(float sp, float kStatic, float kV) {
+    constexpr float kMinMoveSetpoint = 0.05f;  // rad/s
+    if (sp > kMinMoveSetpoint)  return  kStatic + kV * sp;
+    if (sp < -kMinMoveSetpoint) return -kStatic + kV * sp;
+    return 0.0f;
+}
+
 // ---- Inicialización de miembros ----
 Controlador::Controlador(const Config& config)
     : config_(config),
@@ -38,29 +48,15 @@ Controlador::MotorCommand Controlador::computeVelocity(
     const float leftError  = setpoint.leftWheelVel  - state.leftWheelVel;
     const float rightError = setpoint.rightWheelVel - state.rightWheelVel;
 
-    float leftEffort  = leftWheelPid_.compute(leftError, dt);
-    float rightEffort = rightWheelPid_.compute(rightError, dt);
+    // Feedforward continuo + PID: el FF aporta el esfuerzo estimado para
+    // vencer la fricción y sostener el setpoint; el PID corrige el residuo.
+    const float leftFF  = frictionFeedforward(setpoint.leftWheelVel,
+                                              config_.leftKStatic,  config_.leftKV);
+    const float rightFF = frictionFeedforward(setpoint.rightWheelVel,
+                                              config_.rightKStatic, config_.rightKV);
 
-    // Feedforward de arranque: sólo se aplica en el instante de partir desde
-    // parado (rueda ya en movimiento -> no se suma, para no sumar un empujón
-    // fijo en cada ciclo y desestabilizar el lazo cerrado).
-    constexpr float kStationaryThreshold = 0.05f;  // rad/s
-    constexpr float kMinMoveSetpoint     = 0.05f;  // rad/s
-
-    if (state.leftWheelVel > -kStationaryThreshold && state.leftWheelVel < kStationaryThreshold) {
-        if (setpoint.leftWheelVel > kMinMoveSetpoint) {
-            leftEffort += config_.leftStartPwm;
-        } else if (setpoint.leftWheelVel < -kMinMoveSetpoint) {
-            leftEffort -= config_.leftStartPwm;
-        }
-    }
-    if (state.rightWheelVel > -kStationaryThreshold && state.rightWheelVel < kStationaryThreshold) {
-        if (setpoint.rightWheelVel > kMinMoveSetpoint) {
-            rightEffort += config_.rightStartPwm;
-        } else if (setpoint.rightWheelVel < -kMinMoveSetpoint) {
-            rightEffort -= config_.rightStartPwm;
-        }
-    }
+    float leftEffort  = leftFF  + leftWheelPid_.compute(leftError, dt);
+    float rightEffort = rightFF + rightWheelPid_.compute(rightError, dt);
 
     cmd.left  = clampFloat(leftEffort,  -config_.maxMotorOutput, config_.maxMotorOutput);
     cmd.right = clampFloat(rightEffort, -config_.maxMotorOutput, config_.maxMotorOutput);

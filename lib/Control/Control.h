@@ -21,14 +21,20 @@ public:
         // Límite absoluto para la señal enviada a cada motor
         float maxMotorOutput;
 
-        // Feedforward de arranque (fricción estática): esfuerzo que se suma
-        // al output del PID sólo en el instante de arrancar desde parado
-        // (ver kStationaryThreshold en Control.cpp), para vencer la fricción
-        // estática sin depender de un Kp desproporcionado. Medido en banco
-        // (modo MANUAL, rampa de PWM) como el duty mínimo al que la rueda
-        // rompe a girar.
-        float leftStartPwm;
-        float rightStartPwm;
+        // Feedforward continuo de fricción por rueda:
+        //   u_ff = kStatic * sign(sp) + kV * sp
+        // kStatic: esfuerzo para vencer la fricción (offset de Coulomb),
+        //          medido en banco (modo MANUAL, rampa de PWM).
+        // kV     : pendiente PWM por rad/s en régimen (fricción viscosa +
+        //          ganancia del motor), de la misma rampa.
+        // A diferencia del "start kick" anterior, este FF se aplica en TODO
+        // ciclo con setpoint no nulo, así el esfuerzo no colapsa cuando la
+        // rueda rompe a girar (evita stick-slip) y el PID sólo corrige el
+        // residuo.
+        float leftKStatic;
+        float rightKStatic;
+        float leftKV;
+        float rightKV;
     };
 
     // Estructura para agrupar las mediciones actuales (realimentación)
