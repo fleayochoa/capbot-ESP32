@@ -34,6 +34,7 @@
 #include "JetsonLink.h"
 #include "MotorDriver.h"
 #include "SensorHub.h"
+#include "Odometry.h"
 #include "Control.h"
 #include "CapTypes.h"
 
@@ -54,8 +55,8 @@ Capbot::motorPins rightMotorPins = {Pins::RIGHT_IN1, Pins::RIGHT_IN2, Pins::RIGH
 // leftStartPwm/rightStartPwm: medido en banco (modo MANUAL) como el duty
 // mínimo al que cada rueda rompe a girar desde parada.
 static const Controlador::Config DEFAULT_CTRL_CFG = {
-    { 0.15f, 0.01f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // leftWheelPid
-    { 0.15f, 0.01f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // rightWheelPid
+    { 1500.0f, 100.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // leftWheelPid
+    { 1500.0f, 100.0f, 0.0f, -32767.0f , 32767.0f , 50000.0f },  // rightWheelPid
     32767.0f,   // maxMotorOutput
     12812.0f,   // leftStartPwm
     12812.0f    // rightStartPwm
@@ -66,6 +67,9 @@ static JetsonLink   g_link;
 static MotorDriver  g_motors(leftMotorPins, rightMotorPins, Pins::LEDC_CH_LEFT, Pins::LEDC_CH_RIGHT);
 static SensorHub    g_sensors(encPins, PCNT_UNIT_0, PCNT_UNIT_1, 100);
 static Controlador  g_controller(DEFAULT_CTRL_CFG);
+// Odometría on-board (encoders + IMU): sólo estimación de estado para
+// telemetría, no interviene en el control por rueda.
+static Odometry     g_odometry;
 
 // Cuentas/seg -> rad/s de rueda (decodificación 4x, ver Cfg::WHEEL_CPR).
 static constexpr float CPS_TO_RADPS = (2.0f * PI) / Cfg::WHEEL_CPR;
@@ -239,6 +243,9 @@ static void runTelemetry() {
     g_sensors.sample();
     g_sensors.feedMotorStatus(g_motors.leftPwm(), g_motors.rightPwm(), g_motors.isBraking());
 
+    // Odometría a partir de la muestra recién tomada (encoders + IMU).
+    const StateEstimate odo = g_odometry.update(g_sensors.last());
+
     SensorHub::ControlTelemetry ctrl;
     ctrl.sp_left  = g_setpoint.left;
     ctrl.sp_right = g_setpoint.right;
@@ -250,7 +257,7 @@ static void runTelemetry() {
     }
 
     uint8_t payload[Cfg::MAX_FRAME_PAYLOAD];
-    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), modeStr, ctrl);
+    const size_t n = g_sensors.buildPayload(payload, sizeof(payload), odo, modeStr, ctrl);
     if (n > 0) {
         g_link.sendTelemetry(payload, n);
     }
@@ -286,6 +293,7 @@ void setup() {
     g_link.begin();
     g_motors.begin();
     g_sensors.begin();
+    g_odometry.begin();
 
     g_link.onMotorCmd   (&onMotorCmd,     nullptr);
     g_link.onBrake      (&onBrake,        nullptr);

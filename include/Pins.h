@@ -34,9 +34,14 @@ constexpr uint8_t LEDC_CH_RIGHT = 1;
 // --- LED de estado (opcional) ---
 constexpr uint8_t STATUS_LED = 2;  // LED integrado en ESP32 WROOM
 
-// --- Reservados para sensores (I2C IMU, encoders, etc.)
+// --- Reservados para sensores (encoders, I2C IMU, etc.)
 
-constexpr uint8_t ENC_LEFT_A = 33;  
+// I2C compartido para la IMU MPU6050 (AD0=GND -> 0x68). Pines por defecto del
+// ESP32 WROOM. La odometría on-board sólo lee el giroscopio (eje Z) de acá.
+constexpr uint8_t I2C_SDA = 21;
+constexpr uint8_t I2C_SCL = 22;
+
+constexpr uint8_t ENC_LEFT_A = 33;
 constexpr uint8_t ENC_LEFT_B = 32;
 constexpr uint8_t ENC_RIGHT_A = 26;
 constexpr uint8_t ENC_RIGHT_B = 27;

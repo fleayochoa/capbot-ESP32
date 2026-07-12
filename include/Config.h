@@ -47,8 +47,49 @@ constexpr uint32_t NAV_VEL_TIMEOUT_MS = 1000;
 // -------- Cinemática de ruedas --------
 // Cuentas por revolución con decodificación 4x (QuadratureEncoder cuenta los
 // 4 flancos A/B por ciclo). Usado para convertir cuentas/seg del encoder a
-// rad/s de rueda en el PID de velocidad on-board.
-constexpr float WHEEL_CPR = 910.0f;
+// rad/s de rueda en el PID de velocidad on-board y en la odometría.
+constexpr float WHEEL_CPR = 898.0f;
+
+// Diámetro de rueda (m). Legacy: radio ~0.0335 m (ver ganancias del PID).
+constexpr float WHEEL_DIAMETER_M = 0.067f;
+
+// Separación entre ruedas / track width (m): distancia entre los puntos de
+// contacto de la rueda izquierda y derecha. Usado por la odometría on-board
+// para derivar la velocidad de giro (yaw) a partir de los encoders
+// (omega = (vR - vL) / WHEEL_BASE_M). Medido en hardware.
+constexpr float WHEEL_BASE_M = 0.17625f;
+
+// -------- Odometría (encoders + IMU) --------
+// Se calcula on-board y se reporta en el bloque "odo" de la telemetría. No
+// participa del control (el PID de velocidad por rueda es independiente); es
+// sólo estimación de estado.
+//
+// v, x, y: sólo encoders (promedio de rueda y su integración).
+// omega/theta (yaw): filtro complementario entre el giroscopio (eje Z, alta
+// frecuencia, sin drift de patinaje de rueda) y el yaw derivado de los
+// encoders (baja frecuencia, sin drift integral). ODOM_YAW_ALPHA alto =>
+// confía más en el giroscopio.
+constexpr float ODOM_YAW_ALPHA = 0.90f;
+
+// Calibración de la IMU al arranque (robot QUIETO): promedia estas muestras
+// para estimar el bias del giroscopio en Z. Con ~2000 muestras a 2 ms bloquea
+// ~4 s, pero la Jetson tarda >10 s en levantar sus nodos, así que hay tiempo
+// de sobra antes de recibir comandos.
+constexpr uint16_t IMU_CALIB_SAMPLES  = 4000;
+constexpr uint16_t IMU_CALIB_DELAY_MS = 2;
+
+// Ventana del filtro de mediana aplicado a gyro.z antes de la media móvil:
+// rechaza picos impulsivos (spikes eléctricos/vibración puntual) que una
+// media móvil corta deja pasar (e incluso extiende sobre toda la ventana).
+// Impar (5): la mediana es siempre el valor central real, sin promediar dos
+// muestras del medio como pasaría con una ventana par.
+constexpr uint8_t IMU_MEDIAN_WINDOW = 5;
+
+// Ventana de la media móvil aplicada a gyro.z (tras el filtro de mediana)
+// para atenuar el ruido de vibración del chasis antes de fusionarlo con los
+// encoders. Con TELEMETRY_PERIOD_MS=20ms, una ventana de 8 muestras suaviza
+// sobre ~160 ms.
+constexpr uint8_t IMU_ROLLING_WINDOW = 8;
 
 // -------- Tipos de mensaje serial (mantener sincronizado con Jetson) --------
 namespace MsgType {

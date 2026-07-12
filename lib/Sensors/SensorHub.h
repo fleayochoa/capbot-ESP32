@@ -14,6 +14,11 @@
 #include "Config.h"
 #include "QuadratureEncoder.h"
 #include "CapTypes.h"
+#include "IMUSensor.h"
+
+// Definido en Odometry.h; SensorHub sólo necesita el tipo por referencia para
+// serializarlo en buildPayload (evita el ciclo de include con Odometry.h).
+struct StateEstimate;
 
 class SensorHub {
 public:
@@ -30,6 +35,7 @@ public:
         int16_t motor_pwm_left;
         int16_t motor_pwm_right;
         bool    braking;
+        float   imu_gyro_z;  // rad/s (yaw rate, ver IMUSensor)
         uint32_t uptime_ms;
     };
 
@@ -52,12 +58,15 @@ public:
 
     // Serializa la telemetría a JSON en el buffer dado. Devuelve bytes
     // escritos (sin NUL final) o 0 en error. mode: "manual" | "nav2".
-    size_t buildPayload(uint8_t* out, size_t out_cap, const char* mode, const ControlTelemetry& ctrl);
+    // state: pose/velocidad estimada por la odometría on-board (bloque "odo").
+    size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state,
+                        const char* mode, const ControlTelemetry& ctrl);
 
     const Telemetry& last() const { return last_; }
 
 private:
     QuadratureEncoder encL_;
     QuadratureEncoder encR_;
+    IMUSensor imu_;
     Telemetry last_{};
 };
