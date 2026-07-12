@@ -106,6 +106,6 @@ bool JetsonLink::sendRaw(uint8_t type, const uint8_t* payload, size_t len) {
     const size_t n = Protocol::pack_frame(type, payload, len, buf, sizeof(buf));
     if (n == 0) return false;
     // Serial2.write devuelve los bytes escritos; si el TX buffer está lleno
-    // bloquea hasta poder, pero en práctica a 115200 baud casi nunca pasa.
+    // bloquea hasta poder, pero en práctica a 460800 baud casi nunca pasa.
     return Serial2.write(buf, n) == n;
 }

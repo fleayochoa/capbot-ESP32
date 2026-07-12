@@ -8,7 +8,7 @@
 namespace Cfg {
 
 // -------- Serial con Jetson --------
-constexpr uint32_t SERIAL_BAUD = 115200;
+constexpr uint32_t SERIAL_BAUD = 460800;
 constexpr size_t   SERIAL_RX_BUFFER = 1024;   // ESP32 Serial por defecto es 64 bytes, insuficiente para nuestros frames JSON.
 constexpr size_t   SERIAL_TX_BUFFER = 1024;
 
@@ -69,7 +69,7 @@ constexpr float WHEEL_BASE_M = 0.17625f;
 // frecuencia, sin drift de patinaje de rueda) y el yaw derivado de los
 // encoders (baja frecuencia, sin drift integral). ODOM_YAW_ALPHA alto =>
 // confía más en el giroscopio.
-constexpr float ODOM_YAW_ALPHA = 0.90f;
+constexpr float ODOM_YAW_ALPHA = 0.10f;
 
 // Calibración de la IMU al arranque (robot QUIETO): promedia estas muestras
 // para estimar el bias del giroscopio en Z. Con ~2000 muestras a 2 ms bloquea

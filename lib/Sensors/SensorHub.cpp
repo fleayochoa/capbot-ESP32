@@ -56,14 +56,6 @@ size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate
     StaticJsonDocument<768> doc;
 
     doc["mode"] = mode;
-    JsonObject u = doc.createNestedObject("u");
-        u["enc_left"]  = last_.enc_left;
-        u["enc_right"] = last_.enc_right;
-        u["vel_left_cps"]  = last_.vel_left_cps;
-        u["vel_right_cps"] = last_.vel_right_cps;
-        u["pwm_left"]  = last_.motor_pwm_left;
-        u["pwm_right"] = last_.motor_pwm_right;
-        u["braking"]   = last_.braking;
 
     // Odometría on-board (encoders + IMU). Ángulos en grados para mantener el
     // contrato previo con la Jetson (a = heading, w = vel. angular).
