@@ -66,7 +66,22 @@ public:
     // (cable suelto, etc.), no sólo si nunca respondió al arrancar.
     bool isAlive() const { return ok_ && lastReadOk_; }
 
+    // Si la IMU no está viva (nunca respondió, o dejó de responder en
+    // caliente), reintenta begin() cada RECONNECT_INTERVAL_MS en vez de
+    // quedarse leyendo a ciegas para siempre. No hace nada (retorna de
+    // inmediato) si ya está viva o si el cooldown no venció todavía. Cuando
+    // sí reintenta, bloquea lo mismo que begin() (~110 ms); si nunca se
+    // había calibrado (la IMU no estaba presente al arrancar), calibra
+    // también al reconectar (bloquea ~samples*delayMs adicionales, pensado
+    // para pasar una sola vez). Si ya estaba calibrada de antes, reutiliza
+    // ese bias en vez de recalibrar, para no frenar el loop de muestreo en
+    // cada reconexión pasajera. Llamar periódicamente (ej. desde
+    // SensorHub::sampleImu()).
+    void tryReconnect();
+
 private:
+    static constexpr uint32_t RECONNECT_INTERVAL_MS = 2000;
+    uint32_t lastReconnectAttemptMs_ = 0;
     // ---- Registros (comunes a MPU6050/MPU6500) ----
     static constexpr uint8_t REG_SMPLRT_DIV  = 0x19;
     static constexpr uint8_t REG_CONFIG      = 0x1A;

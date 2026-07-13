@@ -38,19 +38,36 @@ void SensorHub::begin() {
 }
 
 void SensorHub::sample() {
-    last_.enc_left         = encL_.read();
-    last_.enc_right        = encR_.read();
-    last_.vel_left_cps     = encL_.computeCountsPerSec();
-    last_.vel_right_cps    = encR_.computeCountsPerSec();
-    last_.uptime_ms        = millis();
+    // I/O (I2C/PCNT) fuera del lock: portENTER_CRITICAL en ESP32 desactiva
+    // interrupciones en este núcleo, así que la sección crítica debe ser lo
+    // más corta posible (sólo las asignaciones al struct compartido).
+    const int32_t encLeft   = encL_.read();
+    const int32_t encRight  = encR_.read();
+    const float   velLeft   = encL_.computeCountsPerSec();
+    const float   velRight  = encR_.computeCountsPerSec();
+    const uint32_t uptime   = millis();
+
+    portENTER_CRITICAL(&mux_);
+    last_.enc_left      = encLeft;
+    last_.enc_right     = encRight;
+    last_.vel_left_cps  = velLeft;
+    last_.vel_right_cps = velRight;
+    last_.uptime_ms     = uptime;
+    portEXIT_CRITICAL(&mux_);
 }
 
 void SensorHub::sampleImu() {
+    // Si no está viva, reintenta reconectar (con cooldown propio, ver
+    // IMUSensor::tryReconnect) en vez de leer a ciegas para siempre.
+    imu_.tryReconnect();
+
     // Si la IMU falló al iniciar, read() deja gyro_z en cero y la odometría
     // degrada theta/omega a sólo-encoders sin inyectar basura.
-    imu_.read(last_.imu_gyro_z);
-    last_.imu_alive = imu_.isAlive();
+    float gyroZ;
+    imu_.read(gyroZ);
+    const bool alive = imu_.isAlive();
 
+    portENTER_CRITICAL(&mux_);
     // Vehículo confirmado quieto (encoders y PWM en 0 en ambas ruedas, según
     // la última sample()/feedMotorStatus()): se descarta la lectura del
     // giroscopio de este ciclo y se fuerza a 0. Con ambas ruedas sin girar y
@@ -59,23 +76,39 @@ void SensorHub::sampleImu() {
     // con el robot parado.
     const bool stationary = last_.vel_left_cps  == 0.0f && last_.vel_right_cps == 0.0f &&
                             last_.motor_pwm_left == 0    && last_.motor_pwm_right == 0;
-    if (stationary) {
-        last_.imu_gyro_z = 0.0f;
-    }
+    last_.imu_gyro_z = stationary ? 0.0f : gyroZ;
+    last_.imu_alive  = alive;
+    portEXIT_CRITICAL(&mux_);
 }
 
 void SensorHub::feedMotorStatus(int16_t leftPwm, int16_t rightPwm, bool braking) {
+    portENTER_CRITICAL(&mux_);
     last_.motor_pwm_left  = leftPwm;
     last_.motor_pwm_right = rightPwm;
     last_.braking         = braking;
+    portEXIT_CRITICAL(&mux_);
+}
+
+SensorHub::Telemetry SensorHub::last() const {
+    portENTER_CRITICAL(&mux_);
+    const Telemetry copy = last_;
+    portEXIT_CRITICAL(&mux_);
+    return copy;
 }
 
 size_t SensorHub::buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state,
                                const char* mode, const ControlTelemetry& ctrl) {
     StaticJsonDocument<768> doc;
 
+    // imu_alive vía last() (no last_ directo): lo escribe ImuTaskCode, esta
+    // función corre en TelemetryTaskCode -- misma sección crítica que
+    // protege al lector cross-core en ControlTaskCode.
+    portENTER_CRITICAL(&mux_);
+    const bool imuAlive = last_.imu_alive;
+    portEXIT_CRITICAL(&mux_);
+
     doc["mode"] = mode;
-    doc["imu_alive"] = last_.imu_alive;  // ver IMUSensor::isAlive()
+    doc["imu_alive"] = imuAlive;  // ver IMUSensor::isAlive()
 
     // Odometría on-board (encoders + IMU). Ángulos en grados para mantener el
     // contrato previo con la Jetson (a = heading, w = vel. angular).

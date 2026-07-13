@@ -61,6 +61,30 @@ bool IMUSensor::isConnected() {
     return wire_->endTransmission() == 0;
 }
 
+void IMUSensor::tryReconnect() {
+    if (isAlive()) return;
+
+    const uint32_t now = millis();
+    if (lastReconnectAttemptMs_ != 0 && now - lastReconnectAttemptMs_ < RECONNECT_INTERVAL_MS) {
+        return;
+    }
+    lastReconnectAttemptMs_ = now;
+
+    if (!begin()) return;  // sigue sin responder; se reintenta en el próximo cooldown
+
+    Serial.println("IMU (re)conectada");
+    if (!calibrated_) {
+        // Nunca se calibró (la IMU no estaba presente al arrancar): hacerlo
+        // ahora que respondió. Bloquea ~samples*delayMs, pero sólo pasa una
+        // vez (calibrated_ queda en true de ahí en adelante).
+        Serial.println("Calibrando IMU: mantener el robot QUIETO...");
+        calibrate(Cfg::IMU_CALIB_SAMPLES, Cfg::IMU_CALIB_DELAY_MS);
+        Serial.printf("IMU calibrada: gyroZBias=%.4f rad/s\n", gyroZBias_);
+    }
+    // Si ya estaba calibrada (reconexión en caliente tras una desconexión
+    // pasajera), reusamos el bias anterior en vez de recalibrar.
+}
+
 bool IMUSensor::readRawGyroZ(float& gz) {
     uint8_t buf[2];
     if (!readBurst(REG_GYRO_ZOUT_H, buf, sizeof(buf))) return false;

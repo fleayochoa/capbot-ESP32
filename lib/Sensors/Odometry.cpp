@@ -42,15 +42,23 @@ StateEstimate Odometry::update(const SensorHub::Telemetry& telemetry) {
     // el patinaje de rueda (que sí contamina el yaw de los encoders).
     const float omegaGyro = telemetry.imu_gyro_z;    // rad/s
     const float omegaEnc  = (vR - vL) / wheelBase_;  // rad/s
-    state_.omega = omegaGyro;
 
-    // Integración de ambas fuentes sobre el theta previo, y mezcla: el gyro
-    // domina en alta frecuencia; el encoder ancla la baja frecuencia y frena
-    // el drift integral del giroscopio.
     const float thetaGyro = state_.theta + omegaGyro * dt;
     const float thetaEnc  = state_.theta + omegaEnc  * dt;
-    state_.theta = wrapPi(Cfg::ODOM_YAW_ALPHA * thetaGyro +
-                          (1.0f - Cfg::ODOM_YAW_ALPHA) * thetaEnc);
+
+    if (telemetry.imu_alive) {
+        // Integración de ambas fuentes sobre el theta previo, y mezcla: el
+        // gyro domina en alta frecuencia; el encoder ancla la baja frecuencia
+        // y frena el drift integral del giroscopio.
+        state_.omega = omegaGyro;
+        state_.theta = wrapPi(Cfg::ODOM_YAW_ALPHA * thetaGyro +
+                              (1.0f - Cfg::ODOM_YAW_ALPHA) * thetaEnc);
+    } else {
+        // IMU no disponible (ver SensorHub::Telemetry::imu_alive): yaw sólo
+        // por dead-reckoning de encoders, sin mezcla.
+        state_.omega = omegaEnc;
+        state_.theta = wrapPi(thetaEnc);
+    }
 
     // --- Velocidad lineal (v): promedio de ambas ruedas (sólo encoders) ---
     state_.v = 0.5f * (vL + vR);

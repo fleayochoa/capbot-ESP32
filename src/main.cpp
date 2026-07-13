@@ -73,8 +73,8 @@ static const Controlador::Config DEFAULT_CTRL_CFG = {
     { 1500.0f, 500.0f, 0.0f, -32767.0f*0.7 , 32767.0f*0.7 , 65.0f },  // leftWheelPid
     { 1500.0f, 500.0f, 0.0f, -32767.0f*0.7 , 32767.0f*0.7 , 65.0f },  // rightWheelPid
     32767.0f,   // maxMotorOutput
-    11500.0f,   // leftKStatic
-    11500.0f,   // rightKStatic
+    12812.0f,   // leftKStatic
+    12812.0f,   // rightKStatic
     1500.0f,    // leftKV
     1500.0f     // rightKV
 };

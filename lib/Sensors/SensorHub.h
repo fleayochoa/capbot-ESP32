@@ -57,8 +57,10 @@ public:
     // para llamarse a una cadencia propia, más rápida que sample() (ver
     // Cfg::IMU_SAMPLE_PERIOD_MS), así IMU_MEDIAN_WINDOW/IMU_ROLLING_WINDOW
     // representan una ventana de tiempo razonable y no varios segundos.
-    // Requiere que feedMotorStatus() ya se haya llamado alguna vez: usa el
-    // último PWM cacheado (y la última vel_left_cps/vel_right_cps de
+    // Si la IMU no está viva, primero reintenta reconectar (con cooldown
+    // propio, ver IMUSensor::tryReconnect) en vez de leer a ciegas para
+    // siempre. Requiere que feedMotorStatus() ya se haya llamado alguna vez:
+    // usa el último PWM cacheado (y la última vel_left_cps/vel_right_cps de
     // sample()) para decidir si el vehículo está quieto (encoders y PWM en 0
     // en ambas ruedas) y en ese caso descarta la lectura del gyro (fuerza
     // gyro_z a 0) en vez de dejar pasar ruido/drift como yaw falso.
@@ -74,11 +76,19 @@ public:
     size_t buildPayload(uint8_t* out, size_t out_cap, const StateEstimate& state,
                         const char* mode, const ControlTelemetry& ctrl);
 
-    const Telemetry& last() const { return last_; }
+    // Copia protegida (spin-lock cross-core) de la telemetría cacheada. Se
+    // devuelve por valor, no por referencia: ImuTaskCode/TelemetryTaskCode
+    // (Core 1) escriben last_ mientras ControlTaskCode (Core 0) la lee (ver
+    // runVelocityControl -> vel_left_cps/vel_right_cps). El ESP32 no tiene
+    // coherencia de caché D automática entre núcleos, así que una lectura
+    // sin lock podría ver un struct a medio escribir o quedarse con un
+    // valor obsoleto cacheado en el otro núcleo indefinidamente.
+    Telemetry last() const;
 
 private:
     QuadratureEncoder encL_;
     QuadratureEncoder encR_;
     IMUSensor imu_;
     Telemetry last_{};
+    mutable portMUX_TYPE mux_ = portMUX_INITIALIZER_UNLOCKED;
 };

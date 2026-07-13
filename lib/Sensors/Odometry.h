@@ -6,7 +6,10 @@
 //
 //   - v (velocidad lineal): sólo encoders, promedio de ambas ruedas.
 //   - omega / theta (yaw): filtro complementario entre el giroscopio (eje Z)
-//     y el yaw derivado de los encoders. Ver Cfg::ODOM_YAW_ALPHA.
+//     y el yaw derivado de los encoders. Ver Cfg::ODOM_YAW_ALPHA. Si la IMU
+//     no está viva (SensorHub::Telemetry::imu_alive == false: nunca
+//     respondió, o dejó de responder en caliente), el yaw cae a
+//     dead-reckoning puro por encoders, sin mezcla.
 //   - x, y: integración de v proyectada sobre theta.
 #pragma once
 
