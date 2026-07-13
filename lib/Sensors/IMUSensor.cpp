@@ -136,6 +136,7 @@ bool IMUSensor::calibrate(uint16_t samples, uint16_t delayMs) {
 bool IMUSensor::read(float& gyroZ) {
     if (!ok_) {
         gyroZ = lastGyroZ_;
+        lastReadOk_ = false;
         return false;
     }
 
@@ -146,8 +147,10 @@ bool IMUSensor::read(float& gyroZ) {
         // MEDIAN_WIN + ROLL_WIN muestras siguientes con un salto falso;
         // en cambio, mantenemos el último valor filtrado válido.
         gyroZ = lastGyroZ_;
+        lastReadOk_ = false;
         return false;
     }
+    lastReadOk_ = true;
 
     // Resta de bias de calibración (cero si no se calibró).
     gz -= gyroZBias_;

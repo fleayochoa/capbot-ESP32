@@ -20,12 +20,20 @@
 //   3. Inicializa sensores (encoders) y odometría
 //   4. Registra callbacks en JetsonLink
 //   5. Manda ESP_HELLO
+//   6. Crea 3 tareas FreeRTOS: Control (Core 0, 20ms), Telemetry (Core 1,
+//      link con la Jetson) e ImuSample (Core 1, prioridad más baja — ver
+//      ImuTaskCode). El gyro vive en su propia tarea a propósito: su I2C es
+//      bloqueante, y si compartiera tarea con el link a la Jetson un bus
+//      lento podría demorar/perder frames de telemetría o comandos entrantes.
 //
-// loop():
+// TelemetryTaskCode (loop):
 //   1. JetsonLink.tick()  -> procesa RX y dispara callbacks
 //   2. Watchdog: si !hb y lastRx > JETSON_WATCHDOG_MS -> brake() y sale a manual
-//   3. Cada TELEMETRY_PERIOD_MS: sample + odometría + control + sendTelemetry
+//   3. Cada TELEMETRY_PERIOD_MS: sample (encoders) + odometría + sendTelemetry
 //   4. Pequeño yield para no hambrear tareas RTOS de fondo
+//
+// ImuTaskCode: muestrea el gyro cada IMU_SAMPLE_PERIOD_MS (ver Config.h),
+// desacoplado del loop de arriba.
 
 #include <Arduino.h>
 
@@ -109,6 +117,7 @@ static bool      g_watchdogTriggered = false;
 // Doble nucleo
 TaskHandle_t ControlTaskHandle;
 TaskHandle_t TelemetryTaskHandle;
+TaskHandle_t ImuTaskHandle;
 // ==============================================================
 // Callbacks del JetsonLink
 // ==============================================================
@@ -251,8 +260,10 @@ static void runTelemetry() {
     if (now - g_lastTelemetryMs < Cfg::TELEMETRY_PERIOD_MS) return;
     g_lastTelemetryMs = now;
 
-    g_sensors.sample();
+    // feedMotorStatus() antes de sample(): ImuTaskCode usa el PWM ya cargado
+    // para decidir si el vehículo está quieto (descarta el gyro ese ciclo).
     g_sensors.feedMotorStatus(g_motors.leftPwm(), g_motors.rightPwm(), g_motors.isBraking());
+    g_sensors.sample();
 
     // Odometría a partir de la muestra recién tomada (encoders + IMU).
     const StateEstimate odo = g_odometry.update(g_sensors.last());
@@ -294,6 +305,7 @@ static void runStatusLed() {
 
 void ControlTaskCode(void * pvParameters);
 void TelemetryTaskCode(void * pvParameters);
+void ImuTaskCode(void * pvParameters);
 
 void setup() {
     pinMode(Pins::STATUS_LED, OUTPUT);
@@ -332,10 +344,25 @@ void setup() {
       2,          /* Priority 2: above Arduino loop task (1) on Core 1 */
       &TelemetryTaskHandle,
       1);
+
+    xTaskCreatePinnedToCore(
+      ImuTaskCode,
+      "ImuSample",
+      10000,      /* Alineado con las otras dos tareas: margen de sobra para
+                     medianFilter() (array local de IMU_MEDIAN_WINDOW floats)
+                     y el driver I2C, corriendo sostenido a alta cadencia. */
+      NULL,
+      1,          /* Priority 1: por debajo de Control/Telemetry (2). El I2C
+                     del gyro es una llamada bloqueante; esta prioridad más
+                     baja garantiza que nunca le robe CPU al link con la
+                     Jetson ni al PID si llegara a demorarse. */
+      &ImuTaskHandle,
+      1);         /* Core 1, junto a Telemetry: Core 0 se deja libre para el
+                     PID de 20ms (ControlTaskCode), más sensible a timing. */
 }
 
 void loop() {
-    
+vTaskDelete(NULL);
 }
 
 //Run control
@@ -357,6 +384,20 @@ void TelemetryTaskCode( void * pvParameters ){
     runWatchdog();
     runTelemetry();
     runStatusLed();
-    delay(0);
+    delay(1);
+  }
+}
+
+// Muestreo del gyro en su propia tarea, desacoplado del link con la Jetson.
+// Cadencia fija (Cfg::IMU_SAMPLE_PERIOD_MS) vía vTaskDelayUntil, igual que
+// ControlTaskCode: así IMU_MEDIAN_WINDOW/ROLLING_WINDOW representan una
+// ventana de tiempo razonable (ver Config.h) sin arriesgar bloquear
+// TelemetryTaskCode si el I2C del gyro se demora.
+void ImuTaskCode( void * pvParameters ){
+  const TickType_t periodo      = pdMS_TO_TICKS(Cfg::IMU_SAMPLE_PERIOD_MS);
+  TickType_t       lastWakeTime = xTaskGetTickCount();
+  for(;;){
+    g_sensors.sampleImu();
+    vTaskDelayUntil(&lastWakeTime, periodo);
   }
 }

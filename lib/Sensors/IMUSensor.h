@@ -59,6 +59,13 @@ public:
 
     bool ok() const { return ok_; }
 
+    // true si begin() tuvo éxito Y la última llamada a read() logró una
+    // transacción I2C real (no el fallback de "último valor válido"). A
+    // diferencia de ok() (fijo desde begin()), esto refleja el estado ACTUAL
+    // del bus — se pone en false si el sensor deja de responder en caliente
+    // (cable suelto, etc.), no sólo si nunca respondió al arrancar.
+    bool isAlive() const { return ok_ && lastReadOk_; }
+
 private:
     // ---- Registros (comunes a MPU6050/MPU6500) ----
     static constexpr uint8_t REG_SMPLRT_DIV  = 0x19;
@@ -91,6 +98,7 @@ private:
     uint8_t  addr_;
     TwoWire* wire_;
     bool     ok_ = false;
+    bool     lastReadOk_ = false;  // ver isAlive()
 
     float gyroZBias_  = 0.0f;
     bool  calibrated_ = false;

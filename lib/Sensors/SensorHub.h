@@ -35,7 +35,8 @@ public:
         int16_t motor_pwm_left;
         int16_t motor_pwm_right;
         bool    braking;
-        float   imu_gyro_z;  // rad/s (yaw rate, ver IMUSensor)
+        float   imu_gyro_z;      // rad/s (yaw rate, ver IMUSensor)
+        bool    imu_alive;       // ver IMUSensor::isAlive() (init Y última lectura ok)
         uint32_t uptime_ms;
     };
 
@@ -48,9 +49,20 @@ public:
     // Configura los encoders. Llamar en setup().
     void begin();
 
-    // Actualiza muestras cacheadas (velocidades y contadores). Llamar
-    // periódicamente (ej. cada tick de telemetría) antes de buildPayload.
+    // Actualiza encoders + uptime cacheados. Llamar a la cadencia de
+    // telemetría (ver Cfg::TELEMETRY_PERIOD_MS) antes de buildPayload.
     void sample();
+
+    // Actualiza sólo el giroscopio (lectura + filtrado de IMUSensor). Pensado
+    // para llamarse a una cadencia propia, más rápida que sample() (ver
+    // Cfg::IMU_SAMPLE_PERIOD_MS), así IMU_MEDIAN_WINDOW/IMU_ROLLING_WINDOW
+    // representan una ventana de tiempo razonable y no varios segundos.
+    // Requiere que feedMotorStatus() ya se haya llamado alguna vez: usa el
+    // último PWM cacheado (y la última vel_left_cps/vel_right_cps de
+    // sample()) para decidir si el vehículo está quieto (encoders y PWM en 0
+    // en ambas ruedas) y en ese caso descarta la lectura del gyro (fuerza
+    // gyro_z a 0) en vez de dejar pasar ruido/drift como yaw falso.
+    void sampleImu();
 
     // Inyecta info del estado del motor (duty y freno) que viene del
     // MotorDriver. Así el payload es autocontenido.

@@ -21,6 +21,14 @@ constexpr uint32_t JETSON_WATCHDOG_MS = 200;
 // 50 Hz = periodo 20 ms.
 constexpr uint32_t TELEMETRY_PERIOD_MS = 20;
 
+// -------- Muestreo del giroscopio --------
+// Cadencia de SensorHub::sampleImu(), desacoplada de TELEMETRY_PERIOD_MS.
+// Con esto, IMU_MEDIAN_WINDOW/IMU_ROLLING_WINDOW (ver más abajo) representan
+// una ventana de tiempo de decenas/cientos de ms; si el gyro se muestreara al
+// ritmo de telemetría (50 Hz) esas mismas ventanas serían de 1-2 segundos.
+// 2 ms = 500 Hz.
+constexpr uint32_t IMU_SAMPLE_PERIOD_MS = 2;
+
 // -------- PWM motores --------
 constexpr uint32_t PWM_FREQ_HZ = 500;   // 500 Hz
 constexpr uint8_t  PWM_RESOLUTION_BITS = 10;  // 0 - 1023
@@ -69,7 +77,7 @@ constexpr float WHEEL_BASE_M = 0.17625f;
 // frecuencia, sin drift de patinaje de rueda) y el yaw derivado de los
 // encoders (baja frecuencia, sin drift integral). ODOM_YAW_ALPHA alto =>
 // confía más en el giroscopio.
-constexpr float ODOM_YAW_ALPHA = 0.10f;
+constexpr float ODOM_YAW_ALPHA = 0.90f;
 
 // Calibración de la IMU al arranque (robot QUIETO): promedia estas muestras
 // para estimar el bias del giroscopio en Z. Con ~2000 muestras a 2 ms bloquea
@@ -81,15 +89,18 @@ constexpr uint16_t IMU_CALIB_DELAY_MS = 2;
 // Ventana del filtro de mediana aplicado a gyro.z antes de la media móvil:
 // rechaza picos impulsivos (spikes eléctricos/vibración puntual) que una
 // media móvil corta deja pasar (e incluso extiende sobre toda la ventana).
-// Impar (5): la mediana es siempre el valor central real, sin promediar dos
-// muestras del medio como pasaría con una ventana par.
-constexpr uint8_t IMU_MEDIAN_WINDOW = 5;
+// Par: una vez llena la ventana, la mediana promedia los dos valores
+// centrales (medianFilter() ya maneja ese caso) en vez de tomar un único
+// valor central "puro". A la cadencia de sampleImu() (IMU_SAMPLE_PERIOD_MS),
+// 20 muestras ≈ 40 ms de ventana.
+constexpr uint8_t IMU_MEDIAN_WINDOW = 20;
 
 // Ventana de la media móvil aplicada a gyro.z (tras el filtro de mediana)
 // para atenuar el ruido de vibración del chasis antes de fusionarlo con los
-// encoders. Con TELEMETRY_PERIOD_MS=20ms, una ventana de 8 muestras suaviza
-// sobre ~160 ms.
-constexpr uint8_t IMU_ROLLING_WINDOW = 8;
+// encoders. A la cadencia de sampleImu(), 30 muestras ≈ 60 ms de retardo de
+// grupo — aceptable porque omega/theta sólo van a telemetría/odometría, no
+// al PID de velocidad.
+constexpr uint8_t IMU_ROLLING_WINDOW = 30;
 
 // -------- Tipos de mensaje serial (mantener sincronizado con Jetson) --------
 namespace MsgType {
